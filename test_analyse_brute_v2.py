@@ -29,8 +29,6 @@ wlen_large = 1536  # taille de fenete pour spectro imprecis
 wlen_giga_large = 8192
 ovlp = 0.75 # overlap spectro
 ovlp_env = 0.9 # overlap spectro enveloppe
-pulse_prom = 0.01 # prominence des pulses
-spec_prom = 0.5 # Prominence of peaks in spectrum
 
 ### Fenetres pour stft
 hamming_courte = hamming(wlen_courte, sym=True) # Construction de la fenêtre
@@ -68,9 +66,23 @@ def wlt_denoise(signal, wlt):
 def log_resize_spec(spec, scaling_factor=10):
     """Log resize time axis. SCALING_FACTOR determines nonlinearity of scaling."""
     #from https://github.com/timsainb/avgn_paper
-    resize_shape = [int(np.log(spec.shape[1]) * scaling_factor), spec.shape[0]]
+    resize_shape = [int(np.log(spec.shape[0]) * scaling_factor), spec.shape[1]]
     resize_spec = np.array(Image.fromarray(spec).resize(resize_shape, Image.LANCZOS))
-    return resize_spec
+    return(resize_spec.T)
+
+### Resize and merge together 2 spectrogram
+def resize_merge_spec(spec1, spec2):
+    s1 = spec1.shape
+    s2 = spec2.shape
+    spec1 /= np.max(spec1)
+    spec2 /= np.max(spec2)
+    final_shape = (max([s1[1],s2[1]]),
+                max([s1[0],s2[0]]))
+    rs_spec1 = np.array(Image.fromarray(spec1).resize(final_shape, Image.LANCZOS))
+    rs_spec2 = np.array(Image.fromarray(spec2).resize(final_shape, Image.LANCZOS))
+    merged_spec = np.vstack((rs_spec1, rs_spec2))
+    return(merged_spec)
+
 
 ### Récupérer les sons
 # wd = "Alpyr_2010-2013_modif/" # Adresse du dossier avec les sons
@@ -115,16 +127,12 @@ for son in sons:
     # plt.plot(lago_filt)
     # plt.plot(lago_wlt)
     # plt.show()
-    ### Etape 4 : calcul de l'enveloppe et spectro
+    ### Etape 3 : calcul de l'enveloppe et stft de l'enveloppe
     env_lago = abs(hilbert(lago_wlt))
-    sTFT_giga_large = ShortTimeFFT(hamming_giga_large, hop=int((1-0.9)*wlen_giga_large), fs=fs)
+    sTFT_giga_large = ShortTimeFFT(hamming_giga_large, hop=int((1-ovlp_env)*wlen_giga_large), fs=fs)
     s_env = sTFT_giga_large.stft(env_lago)
     spec_env = abs(s_env[sTFT_giga_large.f <= 160])
-    # Redimensionner le spectre d'enveloppe à la taille du spectro classique
-    # Exemple: spec_env_rs = np.array(Image.fromarray(spec_env).resize(sTFT_precise.stft(env_lago).shape, Image.LANCZOS))
-
-
-    ### Etape 3 : stft
+    ### Etape 4 : stft
     # Test de configurations
     # Instances de la classe scipy
     sTFT_precise = ShortTimeFFT(hamming_courte, hop=int((1-ovlp)*wlen_courte), fs=fs)
@@ -135,17 +143,20 @@ for son in sons:
     spec_precis = abs(s_precis[np.logical_and(f_filt[0] < sTFT_precise.f, sTFT_precise.f < f_filt[1])])
     f_precis = sTFT_precise.f[np.logical_and(sTFT_precise.f >= f_filt[0], sTFT_precise.f < f_filt[1])]
     # idem pour la stft à large fenêtre
-    s_large = sTFT_large.stft(lago_wlt)
-    spec_large = abs(s_large[np.logical_and(f_filt[0] < sTFT_large.f, sTFT_large.f < f_filt[1])])
-    f_large = sTFT_large.f[np.logical_and(sTFT_large.f >= f_filt[0], sTFT_large.f < f_filt[1])]
-
-    ### Etape 4 : ajout aux listes de resultats
-    results_stft_courte.append(abs(spec_precis))
-    results_stft_longue.append(abs(spec_large))
-    # results_stft_courte.append(abs(M_court))
-    # results_stft_longue.append(abs(M_long))
-
-    ### Etape 5 : ajout du sons filtre a une liste pour d'autres tests
+    # s_large = sTFT_large.stft(lago_wlt)
+    # spec_large = abs(s_large[np.logical_and(f_filt[0] < sTFT_large.f, sTFT_large.f < f_filt[1])])
+    # f_large = sTFT_large.f[np.logical_and(sTFT_large.f >= f_filt[0], sTFT_large.f < f_filt[1])]
+    s_large = sTFT_giga_large.stft(lago_wlt)
+    spec_large = abs(s_large[np.logical_and(f_filt[0] < sTFT_giga_large.f, sTFT_giga_large.f < f_filt[1])])
+    f_large = sTFT_giga_large.f[np.logical_and(sTFT_giga_large.f >= f_filt[0], sTFT_giga_large.f < f_filt[1])]
+    ### Etape 5 : merge stft + stft de l'enveloppe
+    spec_precis = resize_merge_spec(spec_precis, spec_env)
+    spec_large = resize_merge_spec(spec_large, spec_env)
+    ### Etape 6 : ajout aux listes de resultats
+    results_stft_courte.append(spec_precis)
+    results_stft_longue.append(spec_large)
+    #
+    ###  Etape 6 : ajout du sons filtre a une liste pour d'autres tests
     lago_wlt_list.append(lago_wlt)
 
 
@@ -157,6 +168,7 @@ longue_rs = [log_resize_spec(s) for s in results_stft_longue]
 # Regarde qui est le plus long
 i_max_court = np.argmax([r.shape[1] for r in results_stft_courte])
 i_max_long = np.argmax([r.shape[1] for r in results_stft_longue])
+
 # check if same
 if i_max_court == i_max_long:
     print("same !")
@@ -164,41 +176,41 @@ if i_max_court == i_max_long:
 else:
     print("!!! NOT THE SAME !!!")
 
-# Pad to the longuest
+# Pad to have all sounds equal to the targeted duration
 courte = [np.pad(s, [(0,0), (0,results_stft_courte[i_max].shape[1]-s.shape[1])]) for s in results_stft_courte]
 courte_rs = [np.pad(s, [(0,0), (0,courte_rs[i_max].shape[1]-s.shape[1])]) for s in courte_rs]
 longue = [np.pad(s, [(0,0), (0,results_stft_longue[i_max].shape[1]-s.shape[1])]) for s in results_stft_longue]
 longue_rs = [np.pad(s, [(0,0), (0,longue_rs[i_max].shape[1]-s.shape[1])]) for s in longue_rs]
 # Flatten
-courte_flat = np.array([c.ravel() for c in courte])
-courte_rs_flat = np.array([c.ravel() for c in courte_rs])
-longue_flat = np.array([l.ravel() for l in longue])
-longue_rs_flat = np.array([l.ravel() for l in longue_rs])
+courte_flat = np.array([c.T.ravel() for c in courte])
+courte_rs_flat = np.array([c.T.ravel() for c in courte_rs])
+longue_flat = np.array([l.T.ravel() for l in longue])
+longue_rs_flat = np.array([l.T.ravel() for l in longue_rs])
 
 ### Meilleure configuration d'UMAP pour la séparation des sons
 # non supervise
-plt.suptitle("STFT Courte")
+plt.suptitle("STFT + Env Courte")
 for n in range(2,26):
     plt.subplot(3,8,n-1)
     u = umap.UMAP(min_dist=0.1, n_neighbors=n, random_state=2).fit_transform(courte_flat)
-    plt.scatter(u[:,0],u[:,1], c=color_ind)
+    plt.scatter(u[:,0],u[:,1], c=color_ind, cmap="hsv")
     plt.title(str(n) + "voisins")
 plt.show()
-plt.suptitle("STFT Courte Log")
+plt.suptitle("STFT + Env Courte Log")
 for n in range(2,26):
     plt.subplot(3,8,n-1)
     u = umap.UMAP(min_dist=0.1, n_neighbors=n, random_state=2).fit_transform(courte_rs_flat)
     plt.scatter(u[:,0],u[:,1], c=color_ind , cmap='hsv')
     plt.title(str(n) + "voisins")
 plt.show()
-plt.suptitle("STFT Longue")
+plt.suptitle("STFT + Env Longue")
 for n in range(2,26):
     plt.subplot(3,8,n-1)
     u = umap.UMAP(min_dist=0.1, n_neighbors=n, random_state=2).fit_transform(longue_flat)
     plt.scatter(u[:,0],u[:,1], c=color_ind , cmap='hsv')
     plt.title(str(n) + "voisins")
 plt.show()
-plt.suptitle("STFT Longue Log")
+plt.suptitle("STFT + Env Longue Log")
 for n in range(2,26):
     plt.subplot(3,8,n-1)
     u = umap.UMAP(min_dist=0.1, n_neighbors=n, random_state=2).fit_transform(longue_rs_flat)
@@ -206,110 +218,31 @@ for n in range(2,26):
     plt.title(str(n) + "voisins")
 plt.show()
 # supervise
-plt.suptitle("Supervisée STFT Courte")
+plt.suptitle("Supervisée STFT + Env Courte")
 for n in range(2,26):
     plt.subplot(3,8,n-1)
     u = umap.UMAP(min_dist=0.1, n_neighbors=n, random_state=2).fit_transform(courte_flat, y=color_ind)
     plt.scatter(u[:,0],u[:,1], c=color_ind , cmap='hsv')
     plt.title(str(n) + "voisins")
 plt.show()
-plt.suptitle("Supervisée STFT Courte Log")
+plt.suptitle("Supervisée STFT + Env Courte Log")
 for n in range(2,26):
     plt.subplot(3,8,n-1)
     u = umap.UMAP(min_dist=0.1, n_neighbors=n, random_state=2).fit_transform(courte_rs_flat, y=color_ind)
     plt.scatter(u[:,0],u[:,1], c=color_ind , cmap='hsv')
     plt.title(str(n) + "voisins")
 plt.show()
-plt.suptitle("Supervisée STFT Longue")
+plt.suptitle("Supervisée STFT + Env Longue")
 for n in range(2,26):
     plt.subplot(3,8,n-1)
     u = umap.UMAP(min_dist=0.1, n_neighbors=n, random_state=2).fit_transform(longue_flat, y=color_ind)
     plt.scatter(u[:,0],u[:,1], c=color_ind , cmap='hsv')
     plt.title(str(n) + "voisins")
 plt.show()
-plt.suptitle("Supervisée STFT Longue Log")
+plt.suptitle("Supervisée STFT + Env Longue Log")
 for n in range(2,26):
     plt.subplot(3,8,n-1)
     u = umap.UMAP(min_dist=0.1, n_neighbors=n, random_state=2).fit_transform(longue_rs_flat, y=color_ind)
     plt.scatter(u[:,0],u[:,1], c=color_ind , cmap='hsv')
     plt.title(str(n) + "voisins")
 plt.show()
-
-
-# umap for dimension reduction and hdbscan for clustering
-def umap_clust(spec_flat, min_size=1):
-    out = umap.UMAP(min_dist=0.1, n_neighbors=5, n_components=3, random_state=2).fit_transform(spec_flat)
-    hdbscan_labels = hdbscan.HDBSCAN(min_samples=min_size).fit_predict(out)
-    return(out, hdbscan_labels)
-# def umap_clust(spec_flat, min_size=1):
-#     # out = umap.UMAP(min_dist=0.5, random_state=2).fit_transform(spec_flat)
-#     out = PCA(2).fit_transform(spec_flat)
-#     hdbscan_labels = hdbscan.HDBSCAN(min_samples=min_size).fit_predict(out)
-#     return(out, hdbscan_labels)
-
-clust_courte = umap_clust(courte_flat, 2)
-clust_courte_rs = umap_clust(courte_rs_flat, 2)
-clust_longue = umap_clust(longue_flat, 2)
-clust_longue_rs = umap_clust(longue_rs_flat, 2)
-colo = color_ind
-# Plot resultats umap
-plt.subplot(221)
-plt.scatter(clust_courte[0][:,0], clust_courte[0][:,1], c=colo, cmap='hsv')
-plt.title("STFT Courte")
-plt.subplot(222)
-plt.scatter(clust_courte_rs[0][:,0], clust_courte_rs[0][:,1], c=colo, cmap='hsv')
-plt.title("STFT Courte log")
-plt.subplot(223)
-plt.scatter(clust_longue[0][:,0], clust_longue[0][:,1], c=colo, cmap='hsv')
-plt.title("STFT Longue")
-plt.subplot(224)
-plt.scatter(clust_longue_rs[0][:,0], clust_longue_rs[0][:,1], c=colo, cmap='hsv')
-plt.title("STFT Longue log")
-plt.show()
-# Nombre clusters
-for c in [clust_courte, clust_courte_rs, clust_longue, clust_longue_rs]:
-    print(np.unique(c[1]))
-
-# confusion matrix
-from sklearn import metrics as m
-nom_methode = ["STFT Courte", "STFT Courte log", "STFT Longue", "STFT Longue log"]
-for (i,c) in enumerate([clust_courte, clust_courte_rs, clust_longue, clust_longue_rs]):
-    C = m.confusion_matrix(indiv, c[1].astype("str"))
-    idx = np.argmax(C, axis=0)  # re-order columns
-    plt.subplot(221+i)
-    plt.imshow(C[idx, :])
-    plt.colorbar()
-    plt.title(nom_methode[i])
-    plt.ylabel('Manual label')
-    plt.xlabel('Cluster label')
-plt.show()
-
-
-
-# Reduction dimension + clustering
-fft_pca = pca_clust(ffts,2)
-fft_umap = umap_clust(ffts,2)
-plt.subplot(211)
-plt.scatter(fft_pca[0][:,0], fft_pca[0][:,1], c=color_ind, cmap='hsv')
-plt.title("PCA")
-plt.subplot(212)
-plt.scatter(fft_umap[0][:,0], fft_umap[0][:,1], c=color_ind, cmap='hsv')
-plt.legend()
-plt.title("UMAP")
-plt.show()
-# Nombre cluster
-print(np.unique(fft_pca[1]))
-print(np.unique(fft_umap[1]))
-nom_methode_ffts = ["PCA", "UMAP"]
-for (i,c) in enumerate([fft_pca, fft_umap]):
-    C = m.confusion_matrix(indiv, c[1].astype("str"))
-    idx = np.argmax(C, axis=0)  # re-order columns
-    plt.subplot(121+i)
-    plt.imshow(C[idx, :])
-    plt.colorbar()
-    plt.title(nom_methode[i])
-    plt.ylabel('Manual label')
-    plt.xlabel('Cluster label')
-plt.show()
-from sklearn import metrics as m
-m.adjusted_rand_score(indiv, fft_umap[1])
