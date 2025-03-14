@@ -7,7 +7,7 @@ Rand score max :
 
 => 0.8478 pour SIFT + gmm
 => Problème pour AKAZE + gmm
-=> 0.9046 pour ORB + gmm
+=> 0.9046 pour ORB + gmm : 0.9059, utilisé pour 54 features et taille fenêtre 512 => plus consistent
 => 0.8920 pour KAZE + gmm
 => 0.0000 brisk + gmm (à faire) 
 
@@ -18,7 +18,7 @@ Rand score max :
 => 0.8932 pour KAZE + agglo
 
 => 0.8469 pour SIFT + kmeans
-=> 0.9417 pour ORB + k-means
+=> 0.9188 pour ORB + k-means
 => Problème pour AKAZE + k-means
 => 0.8333 pour SIFT/FLANN + k-means
 => 0.8312 pour KAZE + k-means
