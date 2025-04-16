@@ -1,0 +1,36 @@
+Rand score max :
+=> 0.8812 pour ORB + HDBSCAN
+=> 0.8691 pour SIFT + HDBSCAN
+=> 0.8935 pour KAZE + HDBSCAN
+=> 0.8621 pour AKAZE + HDBSCAN
+=> brisk trop long
+
+=> 0.8478 pour SIFT + gmm
+=> Problème pour AKAZE + gmm
+=> 0.9046 pour ORB + gmm : 0.9059, utilisé pour 54 features et taille fenêtre 512 => plus consistent
+=> 0.8920 pour KAZE + gmm
+=> 0.0000 brisk + gmm (à faire) 
+
+=> 0.9083 pour ORB + agglo
+=> 0.8648 pour SIFT + agglo  ?
+=> 0.8642 pour SIFT/FLANN + agglo
+=> 0.8796 pour AKAZE + agglo
+=> 0.8932 pour KAZE + agglo
+
+=> 0.8469 pour SIFT + kmeans
+=> 0.9188 pour ORB + k-means
+=> Problème pour AKAZE + k-means
+=> 0.8333 pour SIFT/FLANN + k-means
+=> 0.8312 pour KAZE + k-means
+
+=> 0.8880 pour ORB + bisecting kmeans
+
+
+
+=> 0.7367 pour SIFT/FLANN + bisecting kmeans
+=> Probleme pour AKAZE + bisecting kmeans
+=> 0.8299 pour SIFT + bisecting kmeans 
+=> 0.5268 pour SIFT + MeanShift
+=> 0.3296 pour ORB + MeanShift
+=> 0.4781 pour AKAZE + MeanShift
+=> 0.2840 pour SIFT/FLANN + MeanShift
