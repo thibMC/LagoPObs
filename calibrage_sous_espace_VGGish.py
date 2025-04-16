@@ -164,4 +164,15 @@ def features_from_spec(
         [len(sTFT.t(int(taille_max * fs))), len(sTFT_env.t(int(taille_max * fs)))]
     )
     spec_comb = np.pad(spec_comb, [(0, 0), (0, max_len - spec_comb.shape[1])])
-    return spec_comb
+    imagette = np.repeat(spec_comb[:, :, np.newaxis], 3, axis=2)
+    imagette = imagette.reshape(
+        (1, imagette.shape[0], imagette.shape[1], imagette.shape[2])
+    )
+    imagette = preprocess_input(imagette)
+    new_input = keras.Input(shape=(spec_comb.shape[0], spec_comb.shape[1], 3))
+    model = keras.applications.VGG19(
+        include_top=False, weights="imagenet", input_tensor=new_input, pooling="avg"
+    )
+    prediction = model.predict(imagette)
+
+    return prediction.ravel()
