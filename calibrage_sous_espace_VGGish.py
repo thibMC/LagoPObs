@@ -133,7 +133,7 @@ def filtre_sons(dossier):
 
 
 # Fonction qui crée les spectros à étudier
-def spec(
+def features_from_spec(
     signal,
     taille_fenetre,
     overlap,
