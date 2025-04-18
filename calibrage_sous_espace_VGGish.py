@@ -228,11 +228,11 @@ def cluster_features(array_features, nom_males=indiv, n_iter=100):
             n_clust[np.argmax(sil[i_s, :])] for i_s in range(sil.shape[0])
         ]
         hdbscan_clust = HDBSCAN(min_cluster_size=2).fit_predict(array_features)
-        cluster_number_found[i : sil.shape[0]] = len(
+        cluster_number_found[i, sil.shape[0]] = len(
             np.unique(hdbscan_clust[hdbscan_clust != -1])
         )
         ms_clust = MeanShift(n_jobs=-1).fit_predict(array_features)
-        cluster_number_found[i : sil.shape[0] + 1] = max(ms_clust) + 1
+        cluster_number_found[i, sil.shape[0] + 1] = max(ms_clust) + 1
         rand_index[i] = [
             m.rand_score(nom_males, clustering_best)
             for clustering_best in [
