@@ -169,11 +169,10 @@ def features_from_spec(
     imagette = imagette.reshape(
         (1, imagette.shape[0], imagette.shape[1], imagette.shape[2])
     )
-    imagette = keras.utils.array_to_img(imagette)
     imagette = preprocess_input(imagette)
     new_input = keras.Input(shape=(spec_comb.shape[0], spec_comb.shape[1], 3))
     model = keras.applications.VGG19(
-        include_top=False, weights="imagenet", input_tensor=new_input, pooling="avg"
+        include_top=False, weights="imagenet", input_tensor=new_input, pooling=None
     )
     prediction = model.predict(imagette)
     return prediction.ravel()
