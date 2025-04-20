@@ -169,6 +169,7 @@ def features_from_spec(
     imagette = imagette.reshape(
         (1, imagette.shape[0], imagette.shape[1], imagette.shape[2])
     )
+    imagette = keras.utils.array_to_img(imagette)
     imagette = preprocess_input(imagette)
     new_input = keras.Input(shape=(spec_comb.shape[0], spec_comb.shape[1], 3))
     model = keras.applications.VGG19(
@@ -206,7 +207,7 @@ print("Features : " + str(t2 - t1))  # 12.36 secs
 indiv = np.array([n.split("_")[1] for n in noms])
 
 
-def cluster_features(array_features, nom_males=indiv, n_iter=100):
+def cluster_features(array_features, nom_males=indiv, n_iter=5):
     n_sons = array_features.shape[0]
     n_clust = np.arange(2, n_sons)
     cluster_number_found = np.zeros((n_iter, 6)).astype(int)
@@ -219,7 +220,9 @@ def cluster_features(array_features, nom_males=indiv, n_iter=100):
             )
             gmm_clust = GaussianMixture(n_components=c).fit_predict(array_features)
             km_clust = KMeans(n_clusters=c).fit_predict(array_features)
-            bkm_clust = BisectingKMeans(n_clusters=c).fit_predict(array_features)
+            bkm_clust = BisectingKMeans(n_clusters=c, init="k-means++").fit_predict(
+                array_features
+            )
             sil[:, c - 2] = [
                 m.silhouette_score(array_features, clust)
                 for clust in [agglo_clust, gmm_clust, km_clust, bkm_clust]
@@ -231,7 +234,7 @@ def cluster_features(array_features, nom_males=indiv, n_iter=100):
         cluster_number_found[i, sil.shape[0]] = len(
             np.unique(hdbscan_clust[hdbscan_clust != -1])
         )
-        ms_clust = MeanShift(n_jobs=-1).fit_predict(array_features)
+        ms_clust = MeanShift().fit_predict(array_features)
         cluster_number_found[i, sil.shape[0] + 1] = max(ms_clust) + 1
         rand_index[i] = [
             m.rand_score(nom_males, clustering_best)
@@ -252,6 +255,7 @@ def cluster_features(array_features, nom_males=indiv, n_iter=100):
                 ms_clust,
             ]
         ]
+        print(str(i + 1) + " %")
     cluster_number_found = pd.DataFrame(
         cluster_number_found,
         columns=[
@@ -287,3 +291,7 @@ def cluster_features(array_features, nom_males=indiv, n_iter=100):
 
 
 clustering_diagnostique = [cluster_features(f) for f in features]
+
+for k, results in enumerate(clustering_diagnostique):
+    results[0].to_csv("lago_resultats_VGG19_nclusters_wlen" + wlen[k] + ".csv")
+    results[1].to_csv("lago_resultats_VGG19_randIndex_wlen" + wlen[k] + ".csv")
