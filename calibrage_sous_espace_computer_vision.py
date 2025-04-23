@@ -40,7 +40,7 @@ wlen_env = 2048  # taille de fenete pour spectro imprecis
 ovlp = 0.75  # overlap spectro
 ovlp_env = 0.9  # overlap spectro enveloppe
 max_dur = 4  # durée en secondes maximale d'un son
-wd = "CCFlaine2017"  # répertoire contenant les sons
+wd = "/home/tmc/Documents/LPO_Prestation/Analyses/CCFlaine2017"  # répertoire contenant les sons
 graine = 20250218  # graine pour UMAP
 n_features = np.arange(10, 110, 10)
 n_features = np.arange(52, 68, 2)
@@ -211,6 +211,7 @@ for w in wlen:
         for k in range(len(signaux))
     ]
     spectrogrammes.append(np.array(s))
+
 t2 = time.time()
 print("Spectro : " + str(t2 - t1))  # 12.36 secs
 # Récuperation des individus via le nom de fichier
@@ -305,7 +306,7 @@ def cluster_spectros(
     liste_spectros,
     nom_males,
     color_labels,
-    detector_methode="SIFT",
+    detector_methode="ORB",
     methode_linkage="ward",
     n_keys=10,
     plot=True,
@@ -324,7 +325,6 @@ def cluster_spectros(
     elif detector_methode == "AKAZE":
         detector = cv2.AKAZE_create()
         matcher = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
-
         # FLAN_INDEX_KDTREE = 1
         # index_params = dict (algorithm = FLAN_INDEX_KDTREE, trees=5)
         # search_params = dict (checks=50)
@@ -336,7 +336,6 @@ def cluster_spectros(
         # search_params = dict (checks=50)
         # matcher = cv2.FlannBasedMatcher(index_params, search_params)
         matcher = cv2.BFMatcher(crossCheck=True)
-
     elif detector_methode == "BRISK":
         detector = cv2.BRISK_create(thresh=5)
         matcher = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
@@ -369,38 +368,51 @@ def cluster_spectros(
     n_clust = np.arange(2, n_specs)
     for c in n_clust:
         # clustering_tech = AgglomerativeClustering(n_clusters=c)
-        clustering_tech = GaussianMixture(n_components=c)
-        # clustering_tech = KMeans(n_clusters=c)
+        # clustering_tech = GaussianMixture(n_components=c)
+        clustering_tech = KMeans(n_clusters=c)
         #     clustering_tech = BisectingKMeans(n_clusters=c)
         cluster = clustering_tech.fit_predict(dist_images)
         sil.append(m.silhouette_score(dist_images, cluster))
     # clustering_tech_best = BisectingKMeans(n_clusters=n_clust[np.argmax(sil)])
-    # clustering_tech_best = KMeans(n_clusters=n_clust[np.argmax(sil)])
+    clustering_tech_best = KMeans(n_clusters=n_clust[np.argmax(sil)])
     # clustering_tech_best = AgglomerativeClustering(n_clusters=n_clust[np.argmax(sil)])
-    clustering_tech_best = GaussianMixture(n_components=n_clust[np.argmax(sil)])
+    # clustering_tech_best = GaussianMixture(n_components=n_clust[np.argmax(sil)])
     # clustering_tech_best = HDBSCAN(min_cluster_size=2)
     # clustering_tech_best = MeanShift(n_jobs=-1)
     rand = m.rand_score(nom_males, clustering_tech_best.fit_predict(dist_images))
-    return rand
+    return rand, n_clust[np.argmax(sil)]
 
 
 # window?
 t1 = time.time()
 a_rand = np.zeros((len(spectrogrammes), len(n_features)))
+numb_clust = np.zeros((len(spectrogrammes), len(n_features)))
 for i, s in enumerate(spectrogrammes):
     for i_n, n in enumerate(n_features):
-        a_rand[i, i_n] = cluster_spectros(
+        resclust = cluster_spectros(
             s, indiv, int_ind, detector_methode="ORB", n_keys=n, plot=False
         )
+        a_rand[i, i_n] = resclust[0]
+        numb_clust[i, i_n] = resclust[1]
+
 t2 = time.time()
 print(t2 - t1)
 
+plt.subplot(211)
 plt.imshow(a_rand, cmap=cc.cm.fire)
 plt.xticks(ticks=np.arange(len(n_features)), labels=n_features)
 plt.xlabel("Nombre de features")
 plt.yticks(ticks=np.arange(len(wlen)), labels=wlen)
 plt.ylabel("Taille de fenêtre")
-plt.suptitle("Indice de Rand")
+# plt.suptitle("Indice de Rand")
+plt.colorbar(fraction=0.01, pad=0.04)
+plt.subplot(212)
+plt.imshow(numb_clust, cmap=cc.cm.fire)
+plt.xticks(ticks=np.arange(len(n_features)), labels=n_features)
+plt.xlabel("Nombre de features")
+plt.yticks(ticks=np.arange(len(wlen)), labels=wlen)
+plt.ylabel("Nombre de clusters")
+# plt.suptitle("Indice de Rand")
 plt.colorbar(fraction=0.01, pad=0.04)
 plt.show()
 
