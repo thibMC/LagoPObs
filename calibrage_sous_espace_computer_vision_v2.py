@@ -31,20 +31,21 @@ from sklearn.cluster import (
     BisectingKMeans,
     MeanShift,
 )
+from multiprocessing import Pool
 
 ### Variables ne dépendant pas de la fréquence d'échantillonnage
 f_filt = [950, 2800]  # bande de fréquences pour la filtration
 chosen_wlt = "bior3.1"  # ondelette pour la filtration
 wlen = np.array([256, 512, 1024, 2048, 4056, 8192])  # taille de fenêtres à étudier
-wlen_env = 2048  # taille de fenete pour spectro imprecis
+wlen_test, wlen_env_test = np.meshgrid(wlen, wlen)
+wlen_test, wlen_env_test = wlen_test.flatten(), wlen_env_test.flatten()
 ovlp = 0.75  # overlap spectro
 ovlp_env = 0.9  # overlap spectro enveloppe
 max_dur = 4  # durée en secondes maximale d'un son
 wd = "/home/tmc/Documents/LPO_Prestation/Analyses/CCFlaine2017"  # répertoire contenant les sons
-graine = 20250218  # graine pour UMAP
-n_features = np.arange(10, 110, 10)
-n_features = np.arange(52, 68, 2)
-n_features = [54, 55, 56]
+n_features = np.arange(10, 110)
+# n_features = np.arange(52, 68, 2)
+# n_features = [54, 55, 56]
 
 
 ### Fonctions
@@ -139,7 +140,6 @@ def spec(
 ):
     # Création des instances de ShortTimeFFT
     fenetre = hamming(taille_fenetre, sym=True)  # Construction de la fenêtre
-    # fenetre = blackmanharris(taille_fenetre, sym=True) # Construction de la fenêtre
     sTFT = ShortTimeFFT(fenetre, hop=int((1 - overlap) * taille_fenetre), fs=fs)
     fenetre_env = hamming(taille_env, sym=True)
     sTFT_env = ShortTimeFFT(fenetre_env, hop=int((1 - overlap_env) * taille_env), fs=fs)
@@ -153,48 +153,8 @@ def spec(
     spec_env = abs(s_env[sTFT_env.f <= 160])  # limite à environ la 3eme harmonique
     # Combine les deux spectros
     spec_comb = resize_merge_spec(spec, spec_env)
-    # Pad à la taille max
-    max_len = max(
-        [len(sTFT.t(int(taille_max * fs))), len(sTFT_env.t(int(taille_max * fs)))]
-    )
-    spec_comb = np.pad(spec_comb, [(0, 0), (0, max_len - spec_comb.shape[1])])
     return spec_comb
 
-
-# Fonction qui cree le sous-espace et le test avec un
-# split un jeu de données en entraînement / test avec un ratio 70% / 30%
-# def eval_UMAP(spectros, individus, nombre_voisins, distance, composante):
-#     modele = umap.UMAP(n_components=composante, min_dist=distance, n_neighbors=nombre_voisins, random_state=graine)
-#     rand = []
-#     skf = StratifiedKFold(n_splits=10)
-#     for train, test in skf.split(spectros, individus):
-#         spec_train = spectros[train]
-#         indiv_train = individus[train]
-#         spec_test = spectros[test]
-#         indiv_test = individus[test]
-#         umap_fit = modele.fit(spec_train, y=indiv_train)
-#         coord_test = umap_fit.transform(spec_test)
-#         silhouette = []
-#         n_cl = range(2,len(spec_test))
-#         for n in n_cl:
-#             g = GaussianMixture(n).fit_predict(coord_test)
-#             silhouette.append(m.silhouette_score(coord_test,g))
-#         final_clusters = GaussianMixture(n_cl[np.argmax(silhouette)]).fit_predict(coord_test)
-#         rand.append(m.adjusted_rand_score(indiv_test, final_clusters))
-#     return(np.mean(rand))
-# def eval_UMAP(spectros, individus, nombre_voisins, distance, composante):
-#     modele = umap.UMAP(n_components=composante, min_dist=distance, n_neighbors=nombre_voisins, random_state=graine)
-#     silhouette = []
-#     skf = StratifiedKFold(n_splits=10)
-#     for train, test in skf.split(spectros, individus):
-#         spec_train = spectros[train]
-#         indiv_train = individus[train]
-#         spec_test = spectros[test]
-#         indiv_test = individus[test]
-#         umap_fit = modele.fit(spec_train, y=indiv_train)
-#         coord_test = umap_fit.transform(spec_test)
-#         silhouette.append(m.silhouette_score(coord_test,indiv_test))
-#     return(np.mean(silhouette))
 
 ### Test et mesure du temps d'execution
 # Recuperation des sons filtrés
@@ -205,9 +165,9 @@ print("Filtration : " + str(t2 - t1))  # 21.33 secs
 # Transformation en spectros
 t1 = time.time()
 spectrogrammes = []
-for w in wlen:
+for w in zip(wlen_test, wlen_test):
     s = [
-        spec(signaux[k], w, ovlp, wlen_env, ovlp_env, freq_ech[k], max_dur, f_filt)
+        spec(signaux[k], w[0], ovlp, w[1], ovlp_env, freq_ech[k], max_dur, f_filt)
         for k in range(len(signaux))
     ]
     spectrogrammes.append(np.array(s))
@@ -217,57 +177,9 @@ print("Spectro : " + str(t2 - t1))  # 12.36 secs
 # Récuperation des individus via le nom de fichier
 indiv = np.array([n.split("_")[1] for n in noms])
 # Transformation en entier
-int_ind = np.zeros(len(indiv))
-for k, ind in enumerate(np.unique(indiv)):
-    print((k, ind))
-    int_ind[indiv == ind] = k
+_, int_ind = np.unique(indiv, return_inverse=True)
 
 
-# Exemple de match
-# s_test = spectrogrammes[0][0]
-# s_test = 255 * s_test/np.max(s_test)
-# s_test = s_test.astype(np.uint8)
-# s_test2 = spectrogrammes[0][1]
-# s_test2 = 255 * s_test2/np.max(s_test2)
-# s_test2 = s_test2.astype(np.uint8)
-# sift = cv2.SIFT_create()
-# kp1, des1 = sift.detectAndCompute(s_test,None)
-# kp2, des2 = sift.detectAndCompute(s_test2,None)
-# # Initialize the Matcher for matching
-# # the keypoints and then match the
-# # keypoints
-# matcher = cv2.BFMatcher()
-# matches = matcher.knnMatch(des1,des2, k=2)
-# # Check good matches
-# good_matches = []
-# for m1, m2 in matches:
-#   if m1.distance < 0.6*m2.distance:
-#     good_matches.append(m1)
-# # Sort matches by distances
-# matches = sorted(matches, key = lambda x:x.distance)
-# print(np.mean([g.distance for g in good_matches]))
-#
-# # draw the matches to the final image
-# # containing both the images the drawMatches()
-# # function takes both images and keypoints
-# # and outputs the matched query image with
-# # its train image
-# final_img = cv2.drawMatches(s_test, kp1, s_test2, kp2, matches[:40],None)
-# final_img = cv2.resize(final_img, (1000,1000))
-# cv2.imshow("Matches", final_img)
-# # With Flann based matcher
-# # see: https://datahacker.rs/feature-matching-methods-comparison-in-opencv/
-# FLAN_INDEX_KDTREE = 0
-# index_params = dict (algorithm = FLAN_INDEX_KDTREE, trees=5)
-# search_params = dict (checks=50)
-# flann = cv2.FlannBasedMatcher(index_params, search_params)
-# matches_flann = flann.knnMatch(des1, des2, k=2)
-# good_matches = []
-# for m1, m2 in matches_flann:
-#   if m1.distance < 0.5 * m2.distance:
-#     good_matches.append(m1)
-# print(np.mean([g.distance for g in good_matches]))
-# Test on whole dataset?
 def transfo_8bits(spectro):
     spectro = 255 * spectro / np.max(spectro)
     return spectro.astype(np.uint8)
@@ -368,15 +280,15 @@ def cluster_spectros(
     n_clust = np.arange(2, n_specs)
     for c in n_clust:
         # clustering_tech = AgglomerativeClustering(n_clusters=c)
-        # clustering_tech = GaussianMixture(n_components=c)
-        clustering_tech = KMeans(n_clusters=c)
+        clustering_tech = GaussianMixture(n_components=c)
+        # clustering_tech = KMeans(n_clusters=c)
         #     clustering_tech = BisectingKMeans(n_clusters=c)
         cluster = clustering_tech.fit_predict(dist_images)
         sil.append(m.silhouette_score(dist_images, cluster))
     # clustering_tech_best = BisectingKMeans(n_clusters=n_clust[np.argmax(sil)])
-    clustering_tech_best = KMeans(n_clusters=n_clust[np.argmax(sil)])
+    # clustering_tech_best = KMeans(n_clusters=n_clust[np.argmax(sil)])
     # clustering_tech_best = AgglomerativeClustering(n_clusters=n_clust[np.argmax(sil)])
-    # clustering_tech_best = GaussianMixture(n_components=n_clust[np.argmax(sil)])
+    clustering_tech_best = GaussianMixture(n_components=n_clust[np.argmax(sil)])
     # clustering_tech_best = HDBSCAN(min_cluster_size=2)
     # clustering_tech_best = MeanShift(n_jobs=-1)
     rand = m.rand_score(nom_males, clustering_tech_best.fit_predict(dist_images))
