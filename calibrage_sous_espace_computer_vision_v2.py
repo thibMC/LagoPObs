@@ -165,7 +165,7 @@ print("Filtration : " + str(t2 - t1))  # 21.33 secs
 # Transformation en spectros
 t1 = time.time()
 spectrogrammes = []
-for w in zip(wlen_test, wlen_test):
+for w in zip(wlen_test, wlen_env_test):
     s = [
         spec(signaux[k], w[0], ovlp, w[1], ovlp_env, freq_ech[k], max_dur, f_filt)
         for k in range(len(signaux))
@@ -309,23 +309,23 @@ for i, s in enumerate(spectrogrammes):
 
 t2 = time.time()
 print(t2 - t1)
-
+wlen_lab = [",".join([str(w[0]), str(w[1])]) for w in zip(wlen_test, wlen_env_test)]
 plt.subplot(211)
 plt.imshow(a_rand, cmap=cc.cm.fire)
 plt.xticks(ticks=np.arange(len(n_features)), labels=n_features)
 plt.xlabel("Nombre de features")
-plt.yticks(ticks=np.arange(len(wlen)), labels=wlen)
+plt.yticks(ticks=np.arange(len(wlen_lab)), labels=wlen_lab)
 plt.ylabel("Taille de fenêtre")
 # plt.suptitle("Indice de Rand")
-plt.colorbar(fraction=0.01, pad=0.04)
+# plt.colorbar(fraction=0.01, pad=0.04)
 plt.subplot(212)
 plt.imshow(numb_clust, cmap=cc.cm.fire)
 plt.xticks(ticks=np.arange(len(n_features)), labels=n_features)
 plt.xlabel("Nombre de features")
-plt.yticks(ticks=np.arange(len(wlen)), labels=wlen)
+plt.yticks(ticks=np.arange(len(wlen_lab)), labels=wlen_lab)
 plt.ylabel("Nombre de clusters")
 # plt.suptitle("Indice de Rand")
-plt.colorbar(fraction=0.01, pad=0.04)
+# plt.colorbar(fraction=0.01, pad=0.04)
 plt.show()
 
 print("Rand max : ", np.max(a_rand))
