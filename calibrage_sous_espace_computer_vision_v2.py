@@ -30,6 +30,7 @@ from sklearn.cluster import (
     KMeans,
     BisectingKMeans,
     MeanShift,
+    AffinityPropagation,
 )
 from multiprocessing import Pool
 
@@ -278,21 +279,23 @@ def cluster_spectros(
     # Clustering
     sil = []
     n_clust = np.arange(2, n_specs)
-    for c in n_clust:
-        # clustering_tech = AgglomerativeClustering(n_clusters=c)
-        clustering_tech = GaussianMixture(n_components=c)
-        # clustering_tech = KMeans(n_clusters=c)
-        #     clustering_tech = BisectingKMeans(n_clusters=c)
-        cluster = clustering_tech.fit_predict(dist_images)
-        sil.append(m.silhouette_score(dist_images, cluster))
+    # for c in n_clust:
+    #     # clustering_tech = AgglomerativeClustering(n_clusters=c)
+    #     clustering_tech = GaussianMixture(n_components=c)
+    #     # clustering_tech = KMeans(n_clusters=c)
+    #     #     clustering_tech = BisectingKMeans(n_clusters=c)
+    #     cluster = clustering_tech.fit_predict(dist_images)
+    #     sil.append(m.silhouette_score(dist_images, cluster))
     # clustering_tech_best = BisectingKMeans(n_clusters=n_clust[np.argmax(sil)])
     # clustering_tech_best = KMeans(n_clusters=n_clust[np.argmax(sil)])
     # clustering_tech_best = AgglomerativeClustering(n_clusters=n_clust[np.argmax(sil)])
-    clustering_tech_best = GaussianMixture(n_components=n_clust[np.argmax(sil)])
+    # clustering_tech_best = GaussianMixture(n_components=n_clust[np.argmax(sil)])
     # clustering_tech_best = HDBSCAN(min_cluster_size=2)
     # clustering_tech_best = MeanShift(n_jobs=-1)
+    clustering_tech_best = AffinityPropagation()
     rand = m.rand_score(nom_males, clustering_tech_best.fit_predict(dist_images))
-    return rand, n_clust[np.argmax(sil)]
+    # return rand, n_clust[np.argmax(sil)]
+    return rand, max(clustering_tech_best.fit_predict(dist_images)) + 1
 
 
 # window?
@@ -370,6 +373,7 @@ def generate_reference_data(X):
 
 
 def within_cluster_sum_of_squares(X, labels):
+    # Adapted from the gapstat library: https://github.com/jmmaloney3/gapstat
     """Calculate the pooled within-cluster sum of squares (W) for
     the clustering defined by the specified labels.
 
@@ -400,7 +404,7 @@ def gap_stat(X, cluster_labels, n_iter=20):
 
 
 sil = []
-bic = []
+# bic = []
 rand = []
 sum_sq = []
 n_clust = np.arange(2, n_specs)
@@ -408,15 +412,18 @@ for c in n_clust:
     clustering_tech = GaussianMixture(
         n_components=c, max_iter=300, n_init=10, init_params="k-means++"
     )
+    clustering_tech = AffinityPropagation()
     cluster = clustering_tech.fit_predict(dist_images)
     sil.append(m.silhouette_score(dist_images, cluster))
-    bic.append(clustering_tech.bic(dist_images))
+    # bic.append(clustering_tech.bic(dist_images))
     sum_sq.append(within_cluster_sum_of_squares(dist_images, cluster))
     rand.append(m.rand_score(indiv, cluster))
 
+d_sum_sq = np.diff(sum_sq)
+d_sum_sq = np.insert(d_sum_sq, 0, 0)
 plt.plot(n_clust, sil / max(sil), label="Silhouette")
-plt.plot(n_clust, bic / max(bic), label="AIC")
-plt.plot(n_clust, np.array(sum_sq) / max(sum_sq), label="Within cluster sum of squares")
+# plt.plot(n_clust, bic / max(bic), label="AIC")
+plt.plot(n_clust, d_sum_sq, label="Within cluster sum of squares")
 plt.plot(n_clust, rand, label="Rand Index")
 plt.legend()
 plt.show()
