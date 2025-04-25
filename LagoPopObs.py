@@ -1,6 +1,6 @@
 import tkinter as tk
 from tkinter import ttk
-from tkinter.messagebox import showwarning
+from tkinter.messagebox import showwarning, showerror, askquestion
 from tkinter import filedialog
 import sys
 import os
@@ -47,7 +47,7 @@ class LagoPopObsUI(tk.Tk):
         self.ovlp_env = tk.StringVar(self,default_lago_vars[6])
         self.n_features = tk.StringVar(self,default_lago_vars[7])
         # Welcome text
-        lab_welcome =ttk.Label(self, text="Welcome to the Lagopède Observator of Populations, in short LagoPopObs.\nThis software was designed initially to cluster rock ptarmigan males \n according to each type of their vocalisations,\nbased on the difference of spectrograms.\nPotentially, it could be used to separate other type of sounds\nby tinkering the analysis parameters but with no guarantee of results. \n")
+        lab_welcome =ttk.Label(self, text="Welcome to the Lagopède Observator of Populations, in short LagoPopObs, developped by Reef pulse SAS for the LPO.\nThis software was designed initially to cluster rock ptarmigan males \n according to each type of their vocalisations,\nbased on the difference of spectrograms.\nPotentially, it could be used to separate other type of sounds\nby tinkering the analysis parameters but with no guarantee of results. \n")
         lab_welcome.grid(row=0, column=0, columnspan=2, **default_separator)
         # Separator
         ttk.Separator(self, orient="horizontal").grid(row=1, column=0, columnspan=2, sticky="ew")
@@ -158,30 +158,39 @@ class LagoPopObsUI(tk.Tk):
         # List with all problems
         list_problems = []
         # List with all warnings
-        warn_list = []
+        list_warnings = []
         # Check that input folder exists and contains WAV
         if os.path.isdir(self.dir_input.get()):
             files_input =  os.listdir(self.dir_input.get())
             wav_check = any([f.endswith(".wav") for f in files_input])
             if not wav_check:
-                list_problems.append(["- Your input folder does not contain WAV files."])
+                list_problems.append("- Your input folder does not contain WAV files.")
         else:
-            list_problems.append(["- Your input folder does not exist."])
+            list_problems.append("- Your input folder does not exist.")
         # Check that output folder exists
         if not os.path.isdir(self.dir_output.get()):
-            list_problems.append(["- Your output folder does not exist."])
+            list_problems.append("- Your output folder does not exist.")
         # Check that the minimum frequency, maximum frequency and number of features are integers
         vars_value = [v.get() for v in [self.fmin, self.fmax, self.n_features]]
         vars_name = ["minimum frequency", "maximum frequency", "number of features"]
-        for v in zip([vars_value, vars_name]):
+        for v in zip(vars_value, vars_name):
             try:
                 float_n = float(v[0])
             except ValueError:
                 list_problems.append("- The %s is not a number." % (v[1]))
             else:
                 if int(float_n) != float_n:
-                    warn_list.append("- The %s is not an integer, it will be rounded to the closest integer." % (v[1]))
-
+                    list_warnings.append("- The %s is a decimal, it will be rounded to the closest integer." % (v[1]))
+        if list_problems:
+            list_problems += list_warnings
+            list_problems = ["We cannot continue as several problems occured:"] + list_problems
+            showerror(title="Wrong inputs!", message="\n".join(list_problems))
+        else:
+            if list_warnings:
+                list_warnings = ["Several decimals were detected in the parameters:"]+ list_warnings
+                showwarning(title="Floats in inputs!", message="\n".join(list_warnings))
+            print("C'est OKAAAAY!")
+            askquestion
 if __name__ == "__main__":
     win = LagoPopObsUI()
     win.mainloop()

@@ -310,6 +310,16 @@ for i, s in enumerate(spectrogrammes):
 t2 = time.time()
 print(t2 - t1)
 wlen_lab = [",".join([str(w[0]), str(w[1])]) for w in zip(wlen_test, wlen_env_test)]
+
+rand_df = pd.DataFrame(
+    a_rand, columns=n_features.astype(str) + "_features", index=wlen_lab
+)
+rand_df.to_csv("ORB_GMM_silhouette_rand.csv")
+numb_clust_df = pd.DataFrame(
+    numb_clust, columns=n_features.astype(str) + "_features", index=wlen_lab
+)
+numb_clust_df.to_csv("ORB_GMM_silhouette_number_clusters.csv")
+
 plt.subplot(211)
 plt.imshow(a_rand, cmap=cc.cm.fire)
 plt.xticks(ticks=np.arange(len(n_features)), labels=n_features)
@@ -328,15 +338,88 @@ plt.ylabel("Nombre de clusters")
 # plt.colorbar(fraction=0.01, pad=0.04)
 plt.show()
 
+
 print("Rand max : ", np.max(a_rand))
 print(np.where(a_rand == np.max(a_rand)))
 
 
-### Générer et visualiser le modèle
-param_best = np.where(qualite_modele == np.max(qualite_modele))
-param_best = (param_best[0][0], param_best[1][0])
-wlen[param_best[0]]  # => 1024
+# Get parameters for the best clustering
+param_best = np.nonzero(a_rand == np.max(a_rand))
+wlen_best = wlen_test[param_best[0]]
+wlen_env_best = wlen_env_test[param_best[0]]
+n_features_best = n_features[param_best[1]]
+# Apply GMM + ORB with best parameters
+best_spec_8bits = [transfo_8bits(s) for s in spectrogrammes[param_best[0]]]
+best_detector = cv2.ORB_create(edgeThreshold=1)
+best_matcher = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
+n_specs = len(best_spec_8bits)
+kp_best = [best_detector.detectAndCompute(l, None) for l in best_spec_8bits]
+dist_images = [
+    distance_matches(best_matcher, kp_best[i], kp_best[j], n_features_best)
+    for i in range(n_specs)
+    for j in range(n_specs)
+]
+dist_images = np.array(dist_images).reshape((n_specs, n_specs))
 
+
+# Generate reference data from a uniform distribution
+# Adapted from: https://www.geeksforgeeks.org/gap-statistics-for-optimal-number-of-cluster/
+def generate_reference_data(X):
+    rng = np.random.default_rng(seed=42)
+    return rng.uniform(low=X.min(axis=0), high=X.max(axis=0), size=X.shape)
+
+
+def within_cluster_sum_of_squares(X, labels):
+    """Calculate the pooled within-cluster sum of squares (W) for
+    the clustering defined by the specified labels.
+
+    Parameters
+    ----------
+    X : array-like, sparse matrix or dataframe, shape=[n_samples, n_features]
+        The observations that were clustered.
+    labels : array-like, shape=[n_samples]
+        The labels identifying the cluster that each sample belongs to.
+    """
+    # initialize W to zero
+    W = 0
+    # -- iterate over the clusters and calculate the pairwise distances for
+    # -- the points
+    for c_label in np.unique(labels):
+        c_k = X[labels == c_label]
+        d_k = m.pairwise.euclidean_distances(c_k, c_k, squared=True)
+        n_k = len(c_k)
+        # multiply by 0.5 because each distance is included in the sum twice
+        W = W + (0.5 * d_k.sum()) / (2 * n_k)
+    # return the result
+    return W
+
+
+def gap_stat(X, cluster_labels, n_iter=20):
+    # Adapted from the gapstat library: https://github.com/jmmaloney3/gapstat
+    print("ah!")
+
+
+sil = []
+bic = []
+rand = []
+sum_sq = []
+n_clust = np.arange(2, n_specs)
+for c in n_clust:
+    clustering_tech = GaussianMixture(
+        n_components=c, max_iter=300, n_init=10, init_params="k-means++"
+    )
+    cluster = clustering_tech.fit_predict(dist_images)
+    sil.append(m.silhouette_score(dist_images, cluster))
+    bic.append(clustering_tech.bic(dist_images))
+    sum_sq.append(within_cluster_sum_of_squares(dist_images, cluster))
+    rand.append(m.rand_score(indiv, cluster))
+
+plt.plot(n_clust, sil / max(sil), label="Silhouette")
+plt.plot(n_clust, bic / max(bic), label="AIC")
+plt.plot(n_clust, np.array(sum_sq) / max(sum_sq), label="Within cluster sum of squares")
+plt.plot(n_clust, rand, label="Rand Index")
+plt.legend()
+plt.show()
 
 # Qualite modèle en fonction des paramètres d'umap
 parametres = product(voisins, d, n_comp)
