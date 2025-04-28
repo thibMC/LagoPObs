@@ -1,4 +1,10 @@
 Rand score max :
+=> 0,9219 ORB + affinity propagation
+=> 0.89969 SIFT + affinity propagation
+=> 0.9043 KAZE + affinity propagation
+=> 0.9092 AKAZE + affinity propagation
+
+
 => 0.8812 pour ORB + HDBSCAN
 => 0.8691 pour SIFT + HDBSCAN
 => 0.8935 pour KAZE + HDBSCAN

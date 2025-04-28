@@ -44,7 +44,9 @@ ovlp = 0.75  # overlap spectro
 ovlp_env = 0.9  # overlap spectro enveloppe
 max_dur = 4  # durée en secondes maximale d'un son
 wd = "/home/tmc/Documents/LPO_Prestation/Analyses/CCFlaine2017"  # répertoire contenant les sons
-n_features = np.arange(10, 110)
+# n_features = np.arange(10, 110)
+n_features = np.arange(10, 500)
+
 # n_features = np.arange(52, 68, 2)
 # n_features = [54, 55, 56]
 
@@ -112,6 +114,8 @@ def filtre_sons(dossier):
         lago = lago.astype(
             np.float64
         )  # conversion en float 64 bits, peut accelerer le calcul
+        # Normalisation by RMS
+        lago /= np.sqrt(np.mean(x**2))
         # Etape 1 : filtrage via passe-bande
         sos = butter(
             10, f_filt, btype="bandpass", fs=fs, output="sos"
@@ -121,10 +125,11 @@ def filtre_sons(dossier):
         lago_wlt = wlt_denoise(lago_filt, chosen_wlt)
         # Commence au début de la vocalise
         lago_wlt = lago_wlt[np.where(lago_wlt != 0)[0][0] :]
-        # Pad à la durée max
-        lago_wlt = np.pad(lago_wlt, (0, max_dur * fs - len(lago_wlt)))
         # Etape 3 : ajout à la liste
         lago_wlt_list.append(lago_wlt)
+    # Etape 4 : pad à la durée max
+    max_len = np.max([len(l) for l in lago_wlt_list])
+    lago_wlt_list = [np.pad(l, (0, max_len - len(l))) for l in lago_wlt_list]
     return (sons, lago_wlt_list, FS)
 
 
@@ -179,6 +184,33 @@ print("Spectro : " + str(t2 - t1))  # 12.36 secs
 indiv = np.array([n.split("_")[1] for n in noms])
 # Transformation en entier
 _, int_ind = np.unique(indiv, return_inverse=True)
+
+
+# Cluster with just images
+flat_specs = [s.reshape((s.shape[0], s.shape[1] * s.shape[2])) for s in spectrogrammes]
+
+
+def affinity_specs(specs1d, nom_males):
+    clustering = AffinityPropagation()
+    clust_index = clustering.fit_predict(specs1d)
+    rand = m.rand_score(nom_males, clust_index)
+    return (rand, len(np.unique(clust_index)))
+
+
+aff_clust = [affinity_specs(f, indiv) for f in flat_specs]
+aff_rand = [a[0] for a in aff_clust]
+aff_nclust = [a[1] for a in aff_clust]
+plt.subplot(211)
+plt.plot(wlen_lab, aff_rand)
+plt.xlabel("Tailles de fenêtre")
+plt.ylabel("Rand index")
+plt.subplot(212)
+plt.plot(wlen_lab, aff_nclust)
+plt.xlabel("Tailles de fenêtre")
+plt.ylabel("Number of clusters")
+plt.show()
+
+print("Rand max : ", np.max(aff_rand))
 
 
 def transfo_8bits(spectro):
@@ -293,9 +325,10 @@ def cluster_spectros(
     # clustering_tech_best = HDBSCAN(min_cluster_size=2)
     # clustering_tech_best = MeanShift(n_jobs=-1)
     clustering_tech_best = AffinityPropagation()
-    rand = m.rand_score(nom_males, clustering_tech_best.fit_predict(dist_images))
+    clust_final = clustering_tech_best.fit_predict(dist_images)
+    rand = m.rand_score(nom_males, clust_final)
     # return rand, n_clust[np.argmax(sil)]
-    return rand, max(clustering_tech_best.fit_predict(dist_images)) + 1
+    return rand, len(np.unique(clust_final))
 
 
 # window?
@@ -305,7 +338,7 @@ numb_clust = np.zeros((len(spectrogrammes), len(n_features)))
 for i, s in enumerate(spectrogrammes):
     for i_n, n in enumerate(n_features):
         resclust = cluster_spectros(
-            s, indiv, int_ind, detector_methode="ORB", n_keys=n, plot=False
+            s, indiv, int_ind, detector_methode="AKAZE", n_keys=n, plot=False
         )
         a_rand[i, i_n] = resclust[0]
         numb_clust[i, i_n] = resclust[1]
@@ -317,11 +350,13 @@ wlen_lab = [",".join([str(w[0]), str(w[1])]) for w in zip(wlen_test, wlen_env_te
 rand_df = pd.DataFrame(
     a_rand, columns=n_features.astype(str) + "_features", index=wlen_lab
 )
-rand_df.to_csv("ORB_GMM_silhouette_rand.csv")
+rand_df.to_csv("AKAZE_affinity_rand.csv")
 numb_clust_df = pd.DataFrame(
     numb_clust, columns=n_features.astype(str) + "_features", index=wlen_lab
 )
-numb_clust_df.to_csv("ORB_GMM_silhouette_number_clusters.csv")
+numb_clust_df.to_csv("AKAZE_affinity_clusters.csv")
+
+print("Rand max : ", np.max(a_rand))
 
 plt.subplot(211)
 plt.imshow(a_rand, cmap=cc.cm.fire)
@@ -345,24 +380,65 @@ plt.show()
 print("Rand max : ", np.max(a_rand))
 print(np.where(a_rand == np.max(a_rand)))
 
-
 # Get parameters for the best clustering
 param_best = np.nonzero(a_rand == np.max(a_rand))
-wlen_best = wlen_test[param_best[0]]
-wlen_env_best = wlen_env_test[param_best[0]]
-n_features_best = n_features[param_best[1]]
-# Apply GMM + ORB with best parameters
-best_spec_8bits = [transfo_8bits(s) for s in spectrogrammes[param_best[0]]]
-best_detector = cv2.ORB_create(edgeThreshold=1)
-best_matcher = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
-n_specs = len(best_spec_8bits)
-kp_best = [best_detector.detectAndCompute(l, None) for l in best_spec_8bits]
-dist_images = [
-    distance_matches(best_matcher, kp_best[i], kp_best[j], n_features_best)
-    for i in range(n_specs)
-    for j in range(n_specs)
-]
-dist_images = np.array(dist_images).reshape((n_specs, n_specs))
+clusters_list = []
+# Several places have the best rand index, test them
+for k in range(len(param_best[0])):
+    wlen_best = wlen_test[param_best[0][k]]
+    wlen_env_best = wlen_env_test[param_best[0][k]]
+    n_features_best = n_features[param_best[1][k]]
+    # Apply GMM + ORB with best parameters
+    best_spec_8bits = [transfo_8bits(s) for s in spectrogrammes[param_best[0][k]]]
+    best_detector = cv2.ORB_create(edgeThreshold=1)
+    best_matcher = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
+    n_specs = len(best_spec_8bits)
+    kp_best = [best_detector.detectAndCompute(l, None) for l in best_spec_8bits]
+    dist_images = [
+        distance_matches(best_matcher, kp_best[i], kp_best[j], n_features_best)
+        for i in range(n_specs)
+        for j in range(n_specs)
+    ]
+    dist_images = np.array(dist_images).reshape((n_specs, n_specs))
+    clustering_tech = AffinityPropagation(max_iter=400, damping=0.75)
+    clusters = clustering_tech.fit_predict(dist_images)
+    clusters_list.append(clusters)
+    print(m.rand_score(indiv, clusters))
+
+for c in clusters_list:
+    print(c == clusters_list[0])
+
+for c in clusters_list:
+    print(c)
+
+for c in np.unique(clusters_list[7]):
+    print(noms[clusters_list[-1] == c])
+
+
+def calc_proba(affinity_propagation_instance):
+    d = -affinity_propagation_instance.affinity_matrix_
+    center_ind = affinity_propagation_instance.cluster_centers_indices_
+    labels = affinity_propagation_instance.labels_
+    proba = []
+    proba_center = [
+        1
+        - np.mean(d[center_ind[u], labels == u])
+        / np.mean(d[center_ind[u], labels != u])
+        for u in np.unique(labels)
+    ]
+    for i_l, l in enumerate(labels):
+        proba_in_cluster = 1 - d[i_l, center_ind[l]] / np.mean(
+            d[i_l, np.delete(center_ind, l)]
+        )
+        proba.append(proba_center[l] * proba_in_cluster)
+    return proba
+
+
+calc_proba(clustering_tech)
+
+gmm = GaussianMixture(
+    n_components=np.max(clusters) + 1,
+).fit_predict(-clustering_tech.affinity_matrix_)
 
 
 # Generate reference data from a uniform distribution

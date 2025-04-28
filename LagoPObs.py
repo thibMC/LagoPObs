@@ -5,6 +5,8 @@ from tkinter import ttk
 from tkinter.messagebox import showwarning, showerror, askyesno
 from tkinter import filedialog
 from tkinter import font
+# import sv_ttk
+# import darkdetect
 
 # variables
 # List of choices for window length
@@ -67,7 +69,7 @@ class LagoPopObsUI(tk.Tk):
             self, text="Select input folder", command=self.input_folder
         )
         button_dir_input.grid(row=4, column=0, **default_grid)
-        self.text_dir_input = tk.Text(self, wrap="word", height=1)
+        self.text_dir_input = ttk.Text(self, wrap="word", height=1)
         self.text_dir_input.insert("1.0", self.dir_input.get())
         self.text_dir_input.config(state="disabled")
         self.text_dir_input.grid(row=4, column=1, **default_grid)
@@ -78,7 +80,7 @@ class LagoPopObsUI(tk.Tk):
             self, text="Select ouput folder", command=self.output_folder
         )
         button_dir_output.grid(row=6, column=0, **default_grid)
-        self.text_dir_output = tk.Text(self, wrap="word", height=1)
+        self.text_dir_output = ttk.Text(self, wrap="word", height=1)
         self.text_dir_output.insert("1.0", self.dir_output.get())
         self.text_dir_output.config(state="disabled")
         self.text_dir_output.grid(row=6, column=1, **default_grid)
@@ -98,12 +100,12 @@ class LagoPopObsUI(tk.Tk):
         # Minimum frequency
         lab_fmin = ttk.Label(text="Lowest frequency:")
         lab_fmin.grid(row=10, column=0, **default_grid)
-        entry_fmin = tk.Entry(self, textvariable=self.fmin)
+        entry_fmin = ttk.Entry(self, textvariable=self.fmin)
         entry_fmin.grid(row=10, column=1, **default_grid)
         # Maximum frequency
         lab_fmax = ttk.Label(text="Highest frequency:")
         lab_fmax.grid(row=11, column=0, **default_grid)
-        entry_fmax = tk.Entry(self, textvariable=self.fmax)
+        entry_fmax = ttk.Entry(self, textvariable=self.fmax)
         entry_fmax.grid(row=11, column=1, **default_grid)
         # Window length for Short-Term Fourier Transform on sound
         lab_win_fft = ttk.Label(text="Window length for STFT of sound:")
@@ -136,7 +138,7 @@ class LagoPopObsUI(tk.Tk):
         # Number of n_features
         lab_n_features = ttk.Label(text="Number of features to extract:")
         lab_n_features.grid(row=16, column=0, **default_grid)
-        entry_n_features = tk.Entry(self, textvariable=self.n_features)
+        entry_n_features = ttk.Entry(self, textvariable=self.n_features)
         entry_n_features.grid(row=16, column=1, **default_grid)
         # Button to validate the parameters and proceed to analysis
         button_proceed = ttk.Button(
@@ -248,6 +250,8 @@ class LagoPopObsUI(tk.Tk):
             )
             print(answer)
 
+# # This is where the magic happens
+# sv_ttk.set_theme(darkdetect.theme())
 
 if __name__ == "__main__":
     win = LagoPopObsUI()
