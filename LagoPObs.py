@@ -9,22 +9,26 @@ from tkinter import font
 # import darkdetect
 
 # variables
-# List of choices for window length
-win_len_list = ("256", "512", "1024", "2048", "4056", "8192")
+# List of choices of window length
+win_len_list = ("256", "512", "1024", "2048", "4096", "8192")
 # List of choices for overlap
 overlap_list = [str(k) for k in range(5, 100, 5)]
 # Default values for rock ptarmigan
-default_lago_vars = ["Yes", "980", "2800", "1024", "75", "2048", "90", "54"]
+default_lago_vars = ["Yes", "980", "2800", "1024", "75", "2048", "90", "54", "ORB", "Affinity propagation"]
 # Option for wavelet filtering
 wlt_filt_list = ["Yes", "No"]
+# Choice list for feature extraction algorithm
+algo_features_list = ["SIFT", "ORB", "AKAZE", "KAZE"]
+# Choice list for clustering algorithm
+algo_clustering_list = ["Agglomerative", "Gaussian Mixture Model", "K-Means", "Bisecting K-Means", "HDBSCAN", "Mean Shift", "Affinity Propagation"]
 
-
+# Main window
 class LagoPopObsUI(tk.Tk):
     def __init__(self):
         tk.Tk.__init__(self)
         # Prepare the grid
         # Rows
-        for i in range(18):
+        for i in range(20):
             self.grid_rowconfigure(i, weight=0)
         # Columns
         for j in range(2):
@@ -36,7 +40,7 @@ class LagoPopObsUI(tk.Tk):
         # Window title
         self.title("lagoPopObs")
         # Geometry of window
-        self.geometry("1000x850")
+        self.geometry("1000x900")
         self.resizable(True, False)
         # Variables
         self.dir_input = tk.StringVar(self, os.getcwd())
@@ -49,10 +53,12 @@ class LagoPopObsUI(tk.Tk):
         self.win_env = tk.StringVar(self, default_lago_vars[5])
         self.ovlp_env = tk.StringVar(self, default_lago_vars[6])
         self.n_features = tk.StringVar(self, default_lago_vars[7])
+        self.algo_features = tk.StringVar(self, default_lago_vars[8])
+        self.algo_clustering = tk.StringVar(self, default_lago_vars[9])
         # Welcome text
         lab_welcome = ttk.Label(
-            self,
-            text="Welcome to the Lagopède Population Observator, in short LagoPObs, developped by Reef pulse SAS for the LPO.\nThis software was designed initially to cluster rock ptarmigan males \n according to each type of their vocalisations,\nbased on the difference of spectrograms.\nPotentially, it could be used to separate other type of sounds\nby tinkering the analysis parameters but with no guarantee of results. \n",
+            self, wraplength=1000,
+            text="Welcome to the Lagopède Population Observator, in short LagoPObs, developped by Reef pulse SAS for the LPO. This software was designed initially to cluster rock ptarmigan males according to each type of their vocalisations, based on the difference of spectrograms.\nPotentially, it could be used to separate other type of sounds\nby tinkering the analysis parameters but with no guarantee of results. \n",
         )
         lab_welcome.grid(row=0, column=0, columnspan=2, **default_separator)
         # Separator
@@ -63,13 +69,13 @@ class LagoPopObsUI(tk.Tk):
         lab_folders.grid(row=2, column=0, columnspan=2, **default_separator)
         #  ttk.Separator(self, orient="horizontal").grid(row=1, column=1, columnspan=3, sticky='nse')
         # Input folder
-        lab_dir_input = ttk.Label(text="Input folder containing wav files to study:")
+        lab_dir_input = ttk.Label(text="Input folder containing wav files to study")
         lab_dir_input.grid(row=3, column=0, columnspan=2, **default_grid)
         button_dir_input = ttk.Button(
-            self, text="Select input folder", command=self.input_folder
+            self, text="Select input folder:", command=self.input_folder
         )
         button_dir_input.grid(row=4, column=0, **default_grid)
-        self.text_dir_input = ttk.Text(self, wrap="word", height=1)
+        self.text_dir_input = tk.Text(self, wrap="word", height=1)
         self.text_dir_input.insert("1.0", self.dir_input.get())
         self.text_dir_input.config(state="disabled")
         self.text_dir_input.grid(row=4, column=1, **default_grid)
@@ -77,10 +83,10 @@ class LagoPopObsUI(tk.Tk):
         lab_dir_output = ttk.Label(text="Output folder where the results will be saved")
         lab_dir_output.grid(row=5, column=0, columnspan=2, **default_grid)
         button_dir_output = ttk.Button(
-            self, text="Select ouput folder", command=self.output_folder
+            self, text="Select ouput folder:", command=self.output_folder
         )
         button_dir_output.grid(row=6, column=0, **default_grid)
-        self.text_dir_output = ttk.Text(self, wrap="word", height=1)
+        self.text_dir_output = tk.Text(self, wrap="word", height=1)
         self.text_dir_output.insert("1.0", self.dir_output.get())
         self.text_dir_output.config(state="disabled")
         self.text_dir_output.grid(row=6, column=1, **default_grid)
@@ -140,11 +146,25 @@ class LagoPopObsUI(tk.Tk):
         lab_n_features.grid(row=16, column=0, **default_grid)
         entry_n_features = ttk.Entry(self, textvariable=self.n_features)
         entry_n_features.grid(row=16, column=1, **default_grid)
+        # Algorithm to extract features from images
+        lab_algo_features = ttk.Label(text="Feature extraction algorithm:")
+        lab_algo_features.grid(row=17, column=0, **default_grid)
+        combo_algo_features = ttk.Combobox(self, textvariable=self.algo_features)
+        combo_algo_features["values"] = algo_features_list
+        combo_algo_features["state"] = "readonly"
+        combo_algo_features.grid(row=17, column=1, **default_grid)
+        # clustering algorithm
+        lab_algo_clustering = ttk.Label(text="Clustering algorithm:")
+        lab_algo_clustering.grid(row=18, column=0, **default_grid)
+        combo_algo_clustering = ttk.Combobox(self, textvariable=self.algo_clustering)
+        combo_algo_clustering["values"] = algo_clustering_list
+        combo_algo_clustering["state"] = "readonly"
+        combo_algo_clustering.grid(row=18, column=1, **default_grid)
         # Button to validate the parameters and proceed to analysis
         button_proceed = ttk.Button(
             self, text="Validate and proceed to analysis", command=self.validate_proceed
         )
-        button_proceed.grid(row=17, column=0, columnspan=2, **default_separator)
+        button_proceed.grid(row=19, column=0, columnspan=2, **default_separator)
 
     def input_folder(self):
         folder = filedialog.askdirectory(initialdir=self.dir_input.get())
@@ -205,6 +225,16 @@ class LagoPopObsUI(tk.Tk):
                         "- The %s is a decimal, it will be rounded to the closest integer."
                         % (v[1])
                     )
+        print(list_problems)
+        # Check that maximum frequency > minimum frequency
+        if not any(["frequency" in p for p in list_problems]):
+            if float(vars_value[0]) >= float(vars_value[1]):
+                list_problems.append("- The lowest frequency is superior or equal to the highest frequency.")
+        # Check that the number of features to extract is not too high (>500)
+        if not any(["features" in p for p in list_problems]):
+            if float(vars_value[2]) > 500:
+                list_problems.append("- The number of features to extract is too high.")
+        # if there are any errors or warnings, display them
         if list_problems:
             list_problems += list_warnings
             list_problems = [

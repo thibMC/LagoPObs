@@ -4,7 +4,6 @@
 ### Timing
 import time
 
-# T1 = time.time()
 ### Libraries
 import os
 from itertools import product
@@ -33,20 +32,23 @@ from sklearn.cluster import (
     AffinityPropagation,
 )
 from multiprocessing import Pool
+from skimage.transform import AffineTransform
+from skimage.measure import ransac
+
 
 ### Variables ne dépendant pas de la fréquence d'échantillonnage
 f_filt = [950, 2800]  # bande de fréquences pour la filtration
 chosen_wlt = "bior3.1"  # ondelette pour la filtration
-wlen = np.array([256, 512, 1024, 2048, 4056, 8192])  # taille de fenêtres à étudier
+wlen = np.array([256, 512, 1024, 2048, 4096, 8192])  # taille de fenêtres à étudier
 wlen_test, wlen_env_test = np.meshgrid(wlen, wlen)
 wlen_test, wlen_env_test = wlen_test.flatten(), wlen_env_test.flatten()
+wlen_lab = [",".join([str(w[0]), str(w[1])]) for w in zip(wlen_test, wlen_env_test)]
 ovlp = 0.75  # overlap spectro
 ovlp_env = 0.9  # overlap spectro enveloppe
 max_dur = 4  # durée en secondes maximale d'un son
 wd = "/home/tmc/Documents/LPO_Prestation/Analyses/CCFlaine2017"  # répertoire contenant les sons
-# n_features = np.arange(10, 110)
+# n_features = np.arange(55, 65)
 n_features = np.arange(10, 500)
-
 # n_features = np.arange(52, 68, 2)
 # n_features = [54, 55, 56]
 
@@ -107,6 +109,8 @@ def filtre_sons(dossier):
     FS = np.zeros(len(sons))
     # Liste contenant les sons filtres
     lago_wlt_list = []
+    # List of the length
+    len_list = []
     for son in sons:
         # Import du son à étudier
         fs, lago = wav.read(dossier + "/" + son)
@@ -115,7 +119,7 @@ def filtre_sons(dossier):
             np.float64
         )  # conversion en float 64 bits, peut accelerer le calcul
         # Normalisation by RMS
-        lago /= np.sqrt(np.mean(x**2))
+        lago /= np.sqrt(np.mean(lago**2))
         # Etape 1 : filtrage via passe-bande
         sos = butter(
             10, f_filt, btype="bandpass", fs=fs, output="sos"
@@ -125,10 +129,11 @@ def filtre_sons(dossier):
         lago_wlt = wlt_denoise(lago_filt, chosen_wlt)
         # Commence au début de la vocalise
         lago_wlt = lago_wlt[np.where(lago_wlt != 0)[0][0] :]
-        # Etape 3 : ajout à la liste
+        # Etape 3 : ajout aux listes
         lago_wlt_list.append(lago_wlt)
+        len_list.append(len(lago_wlt))
     # Etape 4 : pad à la durée max
-    max_len = np.max([len(l) for l in lago_wlt_list])
+    max_len = max(len_list)
     lago_wlt_list = [np.pad(l, (0, max_len - len(l))) for l in lago_wlt_list]
     return (sons, lago_wlt_list, FS)
 
@@ -186,35 +191,9 @@ indiv = np.array([n.split("_")[1] for n in noms])
 _, int_ind = np.unique(indiv, return_inverse=True)
 
 
-# Cluster with just images
-flat_specs = [s.reshape((s.shape[0], s.shape[1] * s.shape[2])) for s in spectrogrammes]
-
-
-def affinity_specs(specs1d, nom_males):
-    clustering = AffinityPropagation()
-    clust_index = clustering.fit_predict(specs1d)
-    rand = m.rand_score(nom_males, clust_index)
-    return (rand, len(np.unique(clust_index)))
-
-
-aff_clust = [affinity_specs(f, indiv) for f in flat_specs]
-aff_rand = [a[0] for a in aff_clust]
-aff_nclust = [a[1] for a in aff_clust]
-plt.subplot(211)
-plt.plot(wlen_lab, aff_rand)
-plt.xlabel("Tailles de fenêtre")
-plt.ylabel("Rand index")
-plt.subplot(212)
-plt.plot(wlen_lab, aff_nclust)
-plt.xlabel("Tailles de fenêtre")
-plt.ylabel("Number of clusters")
-plt.show()
-
-print("Rand max : ", np.max(aff_rand))
-
-
 def transfo_8bits(spectro):
-    spectro = 255 * spectro / np.max(spectro)
+    spectro[spectro < 0] = 0
+    spectro = 255 * abs(spectro / np.max(spectro))
     return spectro.astype(np.uint8)
 
 
@@ -233,7 +212,7 @@ def distance_matches(matcher, kp_des1, kp_des2, n_closest):
         matches_flann = matcher.knnMatch(des1, des2, k=2)
         matches = []
         for m1, m2 in matches_flann:
-            if m1.distance < 0.5 * m2.distance:
+            if m1.distance < 0.75 * m2.distance:
                 matches.append(m1)
         # Sort matches by distances
         matches = sorted(matches, key=lambda x: x.distance)
@@ -243,7 +222,7 @@ def distance_matches(matcher, kp_des1, kp_des2, n_closest):
     elif matches and len(matches) > n_closest:
         dist = np.mean([m.distance for m in matches[:n_closest]])
     else:
-        dist = 1e6
+        dist = 1e10
     return dist
 
 
@@ -338,27 +317,31 @@ numb_clust = np.zeros((len(spectrogrammes), len(n_features)))
 for i, s in enumerate(spectrogrammes):
     for i_n, n in enumerate(n_features):
         resclust = cluster_spectros(
-            s, indiv, int_ind, detector_methode="AKAZE", n_keys=n, plot=False
+            s, indiv, int_ind, detector_methode="ORB", n_keys=n, plot=False
         )
         a_rand[i, i_n] = resclust[0]
         numb_clust[i, i_n] = resclust[1]
 
 t2 = time.time()
 print(t2 - t1)
-wlen_lab = [",".join([str(w[0]), str(w[1])]) for w in zip(wlen_test, wlen_env_test)]
 
-rand_df = pd.DataFrame(
-    a_rand, columns=n_features.astype(str) + "_features", index=wlen_lab
-)
-rand_df.to_csv("AKAZE_affinity_rand.csv")
-numb_clust_df = pd.DataFrame(
-    numb_clust, columns=n_features.astype(str) + "_features", index=wlen_lab
-)
-numb_clust_df.to_csv("AKAZE_affinity_clusters.csv")
-
+# rand_df = pd.DataFrame(
+#     a_rand, columns=n_features.astype(str) + "_features", index=wlen_lab
+# )
+# rand_df.to_csv("AKAZE_affinity_rand.csv")
+# numb_clust_df = pd.DataFrame(
+#     numb_clust, columns=n_features.astype(str) + "_features", index=wlen_lab
+# )
+# numb_clust_df.to_csv("AKAZE_affinity_clusters.csv")
+# numb_clust = numb_clust_df.to_numpy()
 print("Rand max : ", np.max(a_rand))
 
-plt.subplot(211)
+# Load the best config:
+rand_df = pd.read_csv("ORB_affinity_rand.csv", index_col=0)
+a_rand = rand_df.to_numpy()
+numb_clust_df = pd.read_csv("ORB_affinity_clusters.csv", index_col=0)
+numb_clust = numb_clust_df.to_numpy()
+
 plt.imshow(a_rand, cmap=cc.cm.fire)
 plt.xticks(ticks=np.arange(len(n_features)), labels=n_features)
 plt.xlabel("Nombre de features")
@@ -366,7 +349,8 @@ plt.yticks(ticks=np.arange(len(wlen_lab)), labels=wlen_lab)
 plt.ylabel("Taille de fenêtre")
 # plt.suptitle("Indice de Rand")
 # plt.colorbar(fraction=0.01, pad=0.04)
-plt.subplot(212)
+plt.show()
+
 plt.imshow(numb_clust, cmap=cc.cm.fire)
 plt.xticks(ticks=np.arange(len(n_features)), labels=n_features)
 plt.xlabel("Nombre de features")
@@ -388,7 +372,7 @@ for k in range(len(param_best[0])):
     wlen_best = wlen_test[param_best[0][k]]
     wlen_env_best = wlen_env_test[param_best[0][k]]
     n_features_best = n_features[param_best[1][k]]
-    # Apply GMM + ORB with best parameters
+    # Apply Affinity propagation + ORB with best parameters
     best_spec_8bits = [transfo_8bits(s) for s in spectrogrammes[param_best[0][k]]]
     best_detector = cv2.ORB_create(edgeThreshold=1)
     best_matcher = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
@@ -411,8 +395,76 @@ for c in clusters_list:
 for c in clusters_list:
     print(c)
 
-for c in np.unique(clusters_list[7]):
-    print(noms[clusters_list[-1] == c])
+for c in np.unique(clusters_list[1]):
+    print(noms[clusters_list[1] == c])
+
+
+# https://stackoverflow.com/questions/79000140/repeating-a-pattern-sample-using-orb-feature-matching-with-open-cv
+# this is convolution
+def spec_of_spec(spec):
+    spec_spec = cv2.dft(spec)
+    # multiplied = cv2.mulSpectrums(spec_spec, spec_spec, 0, conjB=True)
+    # convolved = cv2.idft(multiplied)
+    # # shift it for display
+    # convolved = np.fft.fftshift(convolved)
+    # return convolved
+    return abs(spec_spec)
+
+
+plt.subplot(211)
+plt.imshow(spec_of_spec(spectrogrammes[param_best[0][1]][10]))
+plt.subplot(212)
+plt.imshow(spec_of_spec(spectrogrammes[param_best[0][1]][11]))
+plt.show()
+
+# => best features: indice 1 = 2eme element
+wlen_best = wlen_test[param_best[0][1]]
+wlen_env_best = wlen_env_test[param_best[0][1]]
+n_features_best = n_features[param_best[1][1]]
+# => fft wlen = 512 ; wlen env = 2048
+# feature number = 22
+best_spec_8bits = [transfo_8bits(s) for s in spectrogrammes[param_best[0][1]]]
+n_specs = len(best_spec_8bits)
+best_detector = cv2.ORB_create(edgeThreshold=1)
+best_matcher = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
+kp_best = [best_detector.detectAndCompute(l, None) for l in best_spec_8bits]
+dist_images = [
+    distance_matches(best_matcher, kp_best[i], kp_best[j], n_features_best)
+    for i in range(n_specs)
+    for j in range(n_specs)
+]
+dist_images = np.array(dist_images).reshape((n_specs, n_specs))
+clustering_tech = AffinityPropagation(max_iter=400, damping=0.75)
+clusters = clustering_tech.fit_predict(dist_images)
+
+# Associate images with keypoints
+for k in range(n_specs):
+    img = cv2.drawKeypoints(best_spec_8bits[k], kp_best[k][0][:n_features_best], None)
+    cv2.imwrite("Spectro_keypoints/" + noms[k].split(".wav")[0] + ".jpg", img)
+
+# Get names of each cluster
+for c in np.unique(clusters):
+    print(noms[clusters_list[1] == c])
+
+# Confusion matrix
+uniq_clust = np.unique(clusters)
+uniq_indiv = np.unique(indiv)
+conf_mat = np.zeros((len(uniq_indiv), len(uniq_clust)))
+for i_u, u in enumerate(uniq_indiv):
+    conf_mat[i_u] = [
+        np.sum(np.array([indiv == u]) * np.array([clusters == c])) for c in uniq_clust
+    ]
+
+plt.imshow(conf_mat, origin="lower")
+for (j, i), label in np.ndenumerate(conf_mat):
+    plt.text(i, j, int(label), ha="center", va="center")
+
+plt.xticks(ticks=np.arange(len(uniq_clust)), labels=uniq_clust)
+plt.xlabel("Numéro des clusters")
+plt.yticks(ticks=np.arange(len(uniq_indiv)), labels=uniq_indiv)
+plt.ylabel("Nom des mâles")
+plt.title("Répartition des mâles au sein des clusters")
+plt.show()
 
 
 def calc_proba(affinity_propagation_instance):
