@@ -5,23 +5,20 @@ from tkinter import ttk
 from tkinter.messagebox import showwarning, showerror, askyesno
 from tkinter import filedialog
 from tkinter import font
-# import sv_ttk
-# import darkdetect
 
-# variables
+# Variables
 # List of choices of window length
 win_len_list = ("256", "512", "1024", "2048", "4096", "8192")
 # List of choices for overlap
 overlap_list = [str(k) for k in range(5, 100, 5)]
 # Default values for rock ptarmigan
-default_lago_vars = ["Yes", "980", "2800", "1024", "75", "2048", "90", "54", "ORB", "Affinity propagation"]
+default_lago_vars = ["Yes", "980", "2800", "1024", "75", "2048", "90", "54", "ORB custom", "Affinity propagation"]
 # Option for wavelet filtering
 wlt_filt_list = ["Yes", "No"]
 # Choice list for feature extraction algorithm
-algo_features_list = ["SIFT", "ORB", "AKAZE", "KAZE"]
+algo_features_list = ["SIFT", "ORB", "ORB custom", "AKAZE", "KAZE"]
 # Choice list for clustering algorithm
-algo_clustering_list = ["Agglomerative", "Gaussian Mixture Model", "K-Means", "Bisecting K-Means", "HDBSCAN", "Mean Shift", "Affinity Propagation"]
-
+algo_clustering_list = ["Affinity Propagation", "Agglomerative", "Bisecting K-Means", "Gaussian Mixture Model", "HDBSCAN", "K-Means", "Mean Shift"]
 # Main window
 class LagoPopObsUI(tk.Tk):
     def __init__(self):
@@ -280,8 +277,6 @@ class LagoPopObsUI(tk.Tk):
             )
             print(answer)
 
-# # This is where the magic happens
-# sv_ttk.set_theme(darkdetect.theme())
 
 if __name__ == "__main__":
     win = LagoPopObsUI()

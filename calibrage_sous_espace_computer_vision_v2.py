@@ -48,8 +48,8 @@ ovlp_env = 0.9  # overlap spectro enveloppe
 max_dur = 4  # durée en secondes maximale d'un son
 wd = "/home/tmc/Documents/LPO_Prestation/Analyses/CCFlaine2017"  # répertoire contenant les sons
 # n_features = np.arange(55, 65)
-n_features = np.arange(10, 500)
-# n_features = np.arange(52, 68, 2)
+# n_features = np.arange(10, 500)
+n_features = np.arange(10, 110)
 # n_features = [54, 55, 56]
 
 
@@ -192,6 +192,8 @@ _, int_ind = np.unique(indiv, return_inverse=True)
 
 
 def transfo_8bits(spectro):
+    # set min at 0
+    # spectro -= spectro.min()
     spectro[spectro < 0] = 0
     spectro = 255 * abs(spectro / np.max(spectro))
     return spectro.astype(np.uint8)
@@ -223,6 +225,18 @@ def distance_matches(matcher, kp_des1, kp_des2, n_closest):
         dist = np.mean([m.distance for m in matches[:n_closest]])
     else:
         dist = 1e10
+    # if matches:
+    #     src_pts = np.float32([kp1[m.queryIdx].pt for m in matches]).reshape(-1, 1, 2)
+    #     dst_pts = np.float32([kp2[m.trainIdx].pt for m in matches]).reshape(-1, 1, 2)
+    #     M, mask = cv2.findHomography(src_pts, dst_pts, cv2.RANSAC, 5.0)
+    #     matches_mask = np.array(mask.ravel().tolist())
+    #     matches = [m for m, mm in zip(matches, matches_mask) if mm == 1]
+    #     if matches and len(matches) <= n_closest:
+    #         dist = np.mean([m.distance for m in matches])
+    #     elif matches and len(matches) > n_closest:
+    #         dist = np.mean([m.distance for m in matches[:n_closest]])
+    # else:
+    #     dist = 1e10
     return dist
 
 
@@ -244,7 +258,7 @@ def cluster_spectros(
         # matcher = cv2.FlannBasedMatcher(index_params, search_params)
         matcher = cv2.BFMatcher(crossCheck=True)
     elif detector_methode == "ORB":
-        detector = cv2.ORB_create(edgeThreshold=1)
+        detector = cv2.ORB_create(edgeThreshold=1, nlevels=12)
         matcher = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
     elif detector_methode == "AKAZE":
         detector = cv2.AKAZE_create()
@@ -306,6 +320,7 @@ def cluster_spectros(
     clustering_tech_best = AffinityPropagation()
     clust_final = clustering_tech_best.fit_predict(dist_images)
     rand = m.rand_score(nom_males, clust_final)
+    rand = m.completeness_score(nom_males, clust_final)
     # return rand, n_clust[np.argmax(sil)]
     return rand, len(np.unique(clust_final))
 
@@ -325,15 +340,15 @@ for i, s in enumerate(spectrogrammes):
 t2 = time.time()
 print(t2 - t1)
 
-# rand_df = pd.DataFrame(
-#     a_rand, columns=n_features.astype(str) + "_features", index=wlen_lab
-# )
-# rand_df.to_csv("AKAZE_affinity_rand.csv")
-# numb_clust_df = pd.DataFrame(
-#     numb_clust, columns=n_features.astype(str) + "_features", index=wlen_lab
-# )
-# numb_clust_df.to_csv("AKAZE_affinity_clusters.csv")
-# numb_clust = numb_clust_df.to_numpy()
+rand_df = pd.DataFrame(
+    a_rand, columns=n_features.astype(str) + "_features", index=wlen_lab
+)
+rand_df.to_csv("ORB_affinity_rand.csv")
+numb_clust_df = pd.DataFrame(
+    numb_clust, columns=n_features.astype(str) + "_features", index=wlen_lab
+)
+numb_clust_df.to_csv("ORB_affinity_clusters.csv")
+numb_clust = numb_clust_df.to_numpy()
 print("Rand max : ", np.max(a_rand))
 
 # Load the best config:
@@ -374,7 +389,9 @@ for k in range(len(param_best[0])):
     n_features_best = n_features[param_best[1][k]]
     # Apply Affinity propagation + ORB with best parameters
     best_spec_8bits = [transfo_8bits(s) for s in spectrogrammes[param_best[0][k]]]
-    best_detector = cv2.ORB_create(edgeThreshold=1)
+    # best_spec_8bits = [feature.local_binary_pattern(b, 6, 2) for b in best_spec_8bits]
+    # best_spec_8bits = [transfo_8bits(s) for s in spectrogrammes[param_best[0][k]]]
+    best_detector = cv2.ORB_create(edgeThreshold=0, nlevels=12)
     best_matcher = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
     n_specs = len(best_spec_8bits)
     kp_best = [best_detector.detectAndCompute(l, None) for l in best_spec_8bits]
@@ -384,9 +401,10 @@ for k in range(len(param_best[0])):
         for j in range(n_specs)
     ]
     dist_images = np.array(dist_images).reshape((n_specs, n_specs))
-    clustering_tech = AffinityPropagation(max_iter=400, damping=0.75)
+    clustering_tech = AffinityPropagation()
     clusters = clustering_tech.fit_predict(dist_images)
     clusters_list.append(clusters)
+    print(m.completeness_score(indiv, clusters))
     print(m.rand_score(indiv, clusters))
 
 for c in clusters_list:
@@ -395,8 +413,8 @@ for c in clusters_list:
 for c in clusters_list:
     print(c)
 
-for c in np.unique(clusters_list[1]):
-    print(noms[clusters_list[1] == c])
+for c in np.unique(clusters_list[0]):
+    print(noms[clusters_list[0] == c])
 
 
 # https://stackoverflow.com/questions/79000140/repeating-a-pattern-sample-using-orb-feature-matching-with-open-cv
@@ -425,7 +443,7 @@ n_features_best = n_features[param_best[1][1]]
 # feature number = 22
 best_spec_8bits = [transfo_8bits(s) for s in spectrogrammes[param_best[0][1]]]
 n_specs = len(best_spec_8bits)
-best_detector = cv2.ORB_create(edgeThreshold=1)
+best_detector = cv2.ORB_create(edgeThreshold=1, nlevels=7)
 best_matcher = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
 kp_best = [best_detector.detectAndCompute(l, None) for l in best_spec_8bits]
 dist_images = [
@@ -439,7 +457,12 @@ clusters = clustering_tech.fit_predict(dist_images)
 
 # Associate images with keypoints
 for k in range(n_specs):
-    img = cv2.drawKeypoints(best_spec_8bits[k], kp_best[k][0][:n_features_best], None)
+    img = cv2.drawKeypoints(
+        best_spec_8bits[k],
+        kp_best[k][0][:n_features_best],
+        None,
+        flags=cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS,
+    )
     cv2.imwrite("Spectro_keypoints/" + noms[k].split(".wav")[0] + ".jpg", img)
 
 # Get names of each cluster
