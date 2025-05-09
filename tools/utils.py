@@ -1,4 +1,5 @@
 import os
+import numpy as np
 import scipy.io.wavfile as wav
 from soxr import resample
 
@@ -15,13 +16,13 @@ def filter_wavs(dir):
     -------
     wav_only: list of str, list of WAV file names in the directory.
     """
-    list_files = os.listdir(dir)
-    wav_check = any([f.endswith(".wav") for f in files])
-    list_wavs = list_files[wav_check]
+    files = os.listdir(dir)
+    wav_check = [f.endswith(".wav") for f in files]
+    list_wavs = np.array(files)[wav_check]
     return list_wavs
 
 
-def import_wav(list_wavs, dir, high_f):
+def import_wavs(list_wavs, dir, high_f):
     """
     Import WAV files from a list of WAV files. The files can have different sampling frequencies. The files will then be resampled to a sampling frequency equals to 2*(high_f+100) and then normalize by their RMS.
 

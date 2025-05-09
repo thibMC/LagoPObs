@@ -40,7 +40,7 @@ def draw_specs(
     window = hamming(win_len, sym=True)
     st_ft = ShortTimeFFT(window, hop=int((1 - ovlp) * win_len), fs=sf)
     window_env = hamming(win_len_env, sym=True)
-    st_ft_env = ShortTimeFFT(window_env, hop=int((1 - ovlp_env) * win_len_env), fs=fs)
+    st_ft_env = ShortTimeFFT(window_env, hop=int((1 - ovlp_env) * win_len_env), fs=sf)
     # Envelope
     env = calc_env(signal)
     # STFT on signal

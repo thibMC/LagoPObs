@@ -33,7 +33,7 @@ def cluster_spectro(
     cluster_labels: 1D array, of same length as list_spectros, with the cluter label of each array.
     keypoints_descriptors: length-n list, each element being a tupple, with the keypoints and descriptors of each array of list_spectros.
     """
-    liste_8bits = [transfo_8bits(s) for s in liste_spectros]
+    liste_8bits = [transfo_8bits(s) for s in list_spectros]
     detector, matcher = feature_detector_matcher(name=detector_methode)
     keypoints_descriptors = [detector.detectAndCompute(l, None) for l in liste_8bits]
     n_specs = len(liste_8bits)
@@ -67,11 +67,12 @@ def save_spectros_keypoints(list_spectros, keypoints_descriptors, names, dir):
     """
     if not os.path.isdir(dir):
         os.mkdir(dir)
-    n_specs = length(list_spectros)
+    n_specs = len(list_spectros)
+    list_spectros = [transfo_8bits(s) for s in list_spectros]
     for k in range(n_specs):
         img = cv2.drawKeypoints(
             list_spectros[k],
-            keypoints_descriptors[k][0][:n_keypoints],
+            keypoints_descriptors[k][0],
             None,
         )
         cv2.imwrite(dir + "/" + names[k].split(".wav")[0] + ".jpg", img)

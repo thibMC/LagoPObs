@@ -46,7 +46,7 @@ def wlt_denoise(signal, wlt="bior3.1"):
     signal_wlt_filt: 1D array, the filtered signal
 
     """
-    max_lvl = pywt.swt_max_level(len(signal), wlt)
+    max_lvl = pywt.dwt_max_level(len(signal), wlt)
     if max_lvl > 14:
         max_lvl = 14
     # Decomposition
@@ -72,5 +72,7 @@ def wlt_denoise(signal, wlt="bior3.1"):
     # Reconstrustion
     signal_wlt_filt = pywt.iswt(signal_swt_filt, wlt)
     signal_wlt_filt = signal_wlt_filt[: len(signal)]
+    # Start at the first non null value
+    signal_wlt_filt = signal_wlt_filt[np.where(signal_wlt_filt != 0)[0][0] :]
     # Return result
     return signal_wlt_filt

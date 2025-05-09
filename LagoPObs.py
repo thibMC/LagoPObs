@@ -6,6 +6,7 @@ from tkinter import ttk
 from tkinter.messagebox import showwarning, showerror, askyesno
 from tkinter import filedialog
 from tkinter import font
+import numpy as np
 import pandas as pd
 from tools import utils, filtering, spectro, image_matching
 
@@ -13,7 +14,7 @@ from tools import utils, filtering, spectro, image_matching
 # List of choices for overlap
 overlap_list = [str(k) for k in range(5, 100, 5)]
 # Default values for rock ptarmigan
-default_lago_vars = ["Yes", "980", "2800", "281", "75", "708", "90", "15", "ORB custom", "Affinity propagation"]
+default_lago_vars = ["Yes", "950", "2800", "281", "75", "706", "90", "53", "ORB custom", "Affinity Propagation"]
 # Option for wavelet filtering
 wlt_filt_list = ["Yes", "No"]
 # Choice list for feature extraction algorithm
@@ -258,13 +259,13 @@ class LagoPopObsUI(tk.Tk):
                 self.wavelet_filt.get(),
                 str(round(float(self.fmin.get()))),
                 str(round(float(self.fmax.get()))),
-                self.win_fft.get(),
+                str(int(float(self.win_fft.get()))),
                 self.ovlp_fft.get(),
-                self.win_env.get(),
+                str(int(float(self.win_env.get()))),
                 self.ovlp_env.get(),
-                str(round(float(self.n_features.get()))),
-                self.algo_features,
-                self.algo_clustering
+                str(int(float(self.n_features.get()))),
+                self.algo_features.get(),
+                self.algo_clustering.get()
             ]
             param_valid = [p[0] + p[1] for p in zip(param_list, param_values)]
             param_valid = [
@@ -305,8 +306,7 @@ class LagoPopObsUI(tk.Tk):
                 ovlp = int(param_values[6])
                 wlen_env = int(param_values[7])
                 ovlp_env = int(param_values[8])
-                spec_lambda = lambda x: spectro.draw_specs(x, wlen, ovlp, wlen_env, ovlp_env, sf, band_freq)
-                spectros = np.apply_along_axis(spec_lambda, 0, arr_filt)
+                spectros = [spectro.draw_specs(a, wlen, ovlp, wlen_env, ovlp_env, sf, band_freq) for a in arr_filt]
                 # Update window
                 text_pop += " done!\nClustering spectrograms..."
                 lab_popup.config(text=text_pop)
@@ -314,11 +314,11 @@ class LagoPopObsUI(tk.Tk):
                 clusters, kp_desc = image_matching.cluster_spectro(spectros, int(param_values[9]), param_values[10], param_values[11])
                 n_clust = len(np.unique(clusters))
                 # Update window
-                text_pop += " done, {n_clust} clusters found!\nSaving files..."
+                text_pop += f" done, {n_clust} clusters found!\nSaving files..."
                 lab_popup.config(text=text_pop)
                 # Save the clustering results
                 df_res = pd.DataFrame(np.column_stack((list_wavs, clusters)), columns=["File","Cluster"])
-                df_res.tocsv(param_values[1] + "/clustering_results.csv", index=False)
+                df_res.to_csv(param_values[1] + "/clustering_results.csv", index=True)
                 # Save the spectrograms with the keypoints in it
                 image_matching.save_spectros_keypoints(spectros, kp_desc, list_wavs, param_values[1])
                 # Update window

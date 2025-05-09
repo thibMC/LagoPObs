@@ -1,6 +1,3 @@
-### Calibrage des propritées de l'obtention du sous-espace
-# genere par UMAP
-
 ### Timing
 import time
 
@@ -18,6 +15,7 @@ import sklearn.metrics as m
 from sklearn.mixture import GaussianMixture
 import pandas as pd
 import cv2
+import colorcet as cc
 from scipy.cluster.hierarchy import dendrogram, linkage
 from scipy.spatial.distance import squareform, pdist
 from sklearn.mixture import GaussianMixture
@@ -153,10 +151,12 @@ def spec(
 ):
     # Création des instances de ShortTimeFFT
     taille_fenetre *= fs
+    taille_fenetre = int(taille_fenetre)
     taille_env *= fs
-    fenetre = hamming(int(taille_fenetre), sym=True)  # Construction de la fenêtre
+    taille_env = int(taille_env)
+    fenetre = hamming(taille_fenetre, sym=True)  # Construction de la fenêtre
     sTFT = ShortTimeFFT(fenetre, hop=int((1 - overlap) * taille_fenetre), fs=fs)
-    fenetre_env = hamming(int(taille_env), sym=True)
+    fenetre_env = hamming(taille_env, sym=True)
     sTFT_env = ShortTimeFFT(fenetre_env, hop=int((1 - overlap_env) * taille_env), fs=fs)
     # Enveloppe
     env = abs(hilbert(signal))
@@ -354,7 +354,10 @@ numb_clust = numb_clust_df.to_numpy()
 print("Rand max : ", np.max(a_rand))
 print("N clust for rand max : ", numb_clust[np.where(a_rand == np.max(a_rand))])
 # Load the best config:
-rand_df = pd.read_csv("ORB_affinity_completness.csv", index_col=0)
+rand_df = pd.read_csv(
+    "/home/tmc/Documents/LPO_Prestation/LPO_Env_Dev/ORB_affinity_completness.csv",
+    index_col=0,
+)
 a_rand = rand_df.to_numpy()
 numb_clust_df = pd.read_csv("ORB_affinity_clusters.csv", index_col=0)
 numb_clust = numb_clust_df.to_numpy()
@@ -390,18 +393,21 @@ best_matcher = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
 for k in range(len(param_best[0])):
     wlen_best = wlen_test[param_best[0][k]]
     wlen_env_best = wlen_env_test[param_best[0][k]]
+    wlen_best = 0.0486
+    wlen_env_best = 0.121728
     n_features_best = n_features[param_best[1][k]]
+    n_features_best = np.arange(50, 56)
     # n_features_best = 39
     best_specs = [
-        spec(signaux[k], wlen_best, ovlp, wlen_env_best, ovlp_env, freq_ech, f_filt)
-        for k in range(len(signaux))
+        spec(signaux[i], wlen_best, ovlp, wlen_env_best, ovlp_env, freq_ech, f_filt)
+        for i in range(len(signaux))
     ]
     # Apply Affinity propagation + ORB with best parameters
     best_spec_8bits = [transfo_8bits(s) for s in best_specs]
     n_specs = len(best_spec_8bits)
     kp_best = [best_detector.detectAndCompute(l, None) for l in best_spec_8bits]
     dist_images = [
-        distance_matches(best_matcher, kp_best[i], kp_best[j], n_features_best)
+        distance_matches(best_matcher, kp_best[i], kp_best[j], n_features_best[k])
         for i in range(n_specs)
         for j in range(n_specs)
     ]
@@ -438,13 +444,15 @@ for c in clusters_list:
 for c in clusters_list:
     print(c)
 
-for c in np.unique(clusters_list[0]):
-    print(noms[clusters_list[0] == c])
+for c in np.unique(clusters_list[-1]):
+    print(noms[clusters_list[-1] == c])
 
 # => best features: dernier élément
 wlen_best = 0.0486
-wlen_env_best = 0.1222368
-n_features_best = 39
+wlen_best = 281 / freq_ech
+wlen_env_best = 0.121728
+wlen_env_best = 706 / freq_ech
+n_features_best = 53
 best_specs = [
     spec(signaux[k], wlen_best, ovlp, wlen_env_best, ovlp_env, freq_ech, f_filt)
     for k in range(len(signaux))
@@ -462,6 +470,8 @@ dist_images = [
 dist_images = np.array(dist_images).reshape((n_specs, n_specs))
 clustering_tech = AffinityPropagation()
 clusters = clustering_tech.fit_predict(dist_images)
+print(m.completeness_score(indiv, clusters))
+print(m.rand_score(indiv, clusters))
 
 # Associate images with keypoints
 for k in range(n_specs):
@@ -476,6 +486,8 @@ for k in range(n_specs):
 # Get filenames of each cluster
 for c in np.unique(clusters):
     print(noms[clusters == c])
+
+np.column_stack((noms, clusters))
 
 # Mean distance between males
 # Distance between each male
