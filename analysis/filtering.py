@@ -30,7 +30,7 @@ def butterfilter(
     return signal_filt
 
 
-def wlt_denoise(signal, wlt):
+def wlt_denoise(signal, wlt="bior3.1"):
     """
     Denoise a 1D signal using the SWT (Stationary wavelet transform) also known as "algorithme à trous", see Percival and Walden, 2000.
 

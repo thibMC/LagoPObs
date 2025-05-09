@@ -34,18 +34,22 @@ from sklearn.cluster import (
 from multiprocessing import Pool
 from skimage.transform import AffineTransform
 from skimage.measure import ransac
+from soxr import resample
 
 
 ### Variables ne dépendant pas de la fréquence d'échantillonnage
 f_filt = [950, 2800]  # bande de fréquences pour la filtration
 chosen_wlt = "bior3.1"  # ondelette pour la filtration
-wlen = np.array([256, 512, 1024, 2048, 4096, 8192])  # taille de fenêtres à étudier
+wlen = np.arange(0.01, 0.37, 0.015)  # => transfo en temps, plus flexible
+wlen = np.geomspace(0.01, 0.37, 10)
+# taille de fenêtres à étudier
 wlen_test, wlen_env_test = np.meshgrid(wlen, wlen)
 wlen_test, wlen_env_test = wlen_test.flatten(), wlen_env_test.flatten()
+# wlen_test = np.linspace(0.02, 0.07, 10)
+# wlen_env_test = np.geomspace(0.1, 0.15, 5)
 wlen_lab = [",".join([str(w[0]), str(w[1])]) for w in zip(wlen_test, wlen_env_test)]
 ovlp = 0.75  # overlap spectro
 ovlp_env = 0.9  # overlap spectro enveloppe
-max_dur = 4  # durée en secondes maximale d'un son
 wd = "/home/tmc/Documents/LPO_Prestation/Analyses/CCFlaine2017"  # répertoire contenant les sons
 # n_features = np.arange(55, 65)
 # n_features = np.arange(10, 500)
@@ -106,7 +110,7 @@ def resize_merge_spec(spec1, spec2):
 #   - un array avec les fréquences d'échantillonnage => plus de flexibilite
 def filtre_sons(dossier):
     sons = np.array(os.listdir(dossier))  # liste des sons
-    FS = np.zeros(len(sons))
+    FS = int(2 * (f_filt[1] + 100))
     # Liste contenant les sons filtres
     lago_wlt_list = []
     # List of the length
@@ -114,15 +118,16 @@ def filtre_sons(dossier):
     for son in sons:
         # Import du son à étudier
         fs, lago = wav.read(dossier + "/" + son)
-        FS[sons == son] = fs
         lago = lago.astype(
             np.float64
         )  # conversion en float 64 bits, peut accelerer le calcul
+        # Resample
+        lago = resample(lago, fs, FS, "HQ")
         # Normalisation by RMS
         lago /= np.sqrt(np.mean(lago**2))
         # Etape 1 : filtrage via passe-bande
         sos = butter(
-            10, f_filt, btype="bandpass", fs=fs, output="sos"
+            10, f_filt, btype="bandpass", fs=FS, output="sos"
         )  # Filtre passe-bande très restrictif
         lago_filt = sosfiltfilt(sos, lago)
         # Etape 2 : filtrage par ondelettes
@@ -146,13 +151,14 @@ def spec(
     taille_env,
     overlap_env,
     fs,
-    taille_max,
     freqs_interet,
 ):
     # Création des instances de ShortTimeFFT
-    fenetre = hamming(taille_fenetre, sym=True)  # Construction de la fenêtre
+    taille_fenetre *= fs
+    taille_env *= fs
+    fenetre = hamming(int(taille_fenetre), sym=True)  # Construction de la fenêtre
     sTFT = ShortTimeFFT(fenetre, hop=int((1 - overlap) * taille_fenetre), fs=fs)
-    fenetre_env = hamming(taille_env, sym=True)
+    fenetre_env = hamming(int(taille_env), sym=True)
     sTFT_env = ShortTimeFFT(fenetre_env, hop=int((1 - overlap_env) * taille_env), fs=fs)
     # Enveloppe
     env = abs(hilbert(signal))
@@ -178,7 +184,7 @@ t1 = time.time()
 spectrogrammes = []
 for w in zip(wlen_test, wlen_env_test):
     s = [
-        spec(signaux[k], w[0], ovlp, w[1], ovlp_env, freq_ech[k], max_dur, f_filt)
+        spec(signaux[k], w[0], ovlp, w[1], ovlp_env, freq_ech, f_filt)
         for k in range(len(signaux))
     ]
     spectrogrammes.append(np.array(s))
@@ -188,15 +194,13 @@ print("Spectro : " + str(t2 - t1))  # 12.36 secs
 # Récuperation des individus via le nom de fichier
 indiv = np.array([n.split("_")[1] for n in noms])
 # Transformation en entier
-_, int_ind = np.unique(indiv, return_inverse=True)
+uniq_ind, int_ind = np.unique(indiv, return_inverse=True)
 
 
 def transfo_8bits(spectro):
-    # set min at 0
-    # spectro -= spectro.min()
-    spectro[spectro < 0] = 0
-    spectro = 255 * abs(spectro / np.max(spectro))
-    return spectro.astype(np.uint8)
+    # set max of image at 255
+    spec_8bits = 255 * abs(spectro / np.max(spectro))
+    return spec_8bits.astype(np.uint8)
 
 
 def distance_matches(matcher, kp_des1, kp_des2, n_closest):
@@ -258,7 +262,7 @@ def cluster_spectros(
         # matcher = cv2.FlannBasedMatcher(index_params, search_params)
         matcher = cv2.BFMatcher(crossCheck=True)
     elif detector_methode == "ORB":
-        detector = cv2.ORB_create(edgeThreshold=1, nlevels=12)
+        detector = cv2.ORB_create(edgeThreshold=1, nlevels=7)
         matcher = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
     elif detector_methode == "AKAZE":
         detector = cv2.AKAZE_create()
@@ -320,8 +324,8 @@ def cluster_spectros(
     clustering_tech_best = AffinityPropagation()
     clust_final = clustering_tech_best.fit_predict(dist_images)
     rand = m.rand_score(nom_males, clust_final)
-    rand = m.completeness_score(nom_males, clust_final)
     # return rand, n_clust[np.argmax(sil)]
+    rand = m.completeness_score(nom_males, clust_final)
     return rand, len(np.unique(clust_final))
 
 
@@ -343,16 +347,16 @@ print(t2 - t1)
 rand_df = pd.DataFrame(
     a_rand, columns=n_features.astype(str) + "_features", index=wlen_lab
 )
-rand_df.to_csv("ORB_affinity_rand.csv")
+rand_df.to_csv("ORB_affinity_completness.csv")
 numb_clust_df = pd.DataFrame(
     numb_clust, columns=n_features.astype(str) + "_features", index=wlen_lab
 )
 numb_clust_df.to_csv("ORB_affinity_clusters.csv")
 numb_clust = numb_clust_df.to_numpy()
 print("Rand max : ", np.max(a_rand))
-
+print("N clust for rand max : ", numb_clust[np.where(a_rand == np.max(a_rand))])
 # Load the best config:
-rand_df = pd.read_csv("ORB_affinity_rand.csv", index_col=0)
+rand_df = pd.read_csv("ORB_affinity_completness.csv", index_col=0)
 a_rand = rand_df.to_numpy()
 numb_clust_df = pd.read_csv("ORB_affinity_clusters.csv", index_col=0)
 numb_clust = numb_clust_df.to_numpy()
@@ -382,17 +386,20 @@ print(np.where(a_rand == np.max(a_rand)))
 # Get parameters for the best clustering
 param_best = np.nonzero(a_rand == np.max(a_rand))
 clusters_list = []
+best_detector = cv2.ORB_create(edgeThreshold=1, nlevels=7)
+best_matcher = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
 # Several places have the best rand index, test them
 for k in range(len(param_best[0])):
     wlen_best = wlen_test[param_best[0][k]]
     wlen_env_best = wlen_env_test[param_best[0][k]]
     n_features_best = n_features[param_best[1][k]]
+    # n_features_best = 39
+    best_specs = [
+        spec(signaux[k], wlen_best, ovlp, wlen_env_best, ovlp_env, freq_ech, f_filt)
+        for k in range(len(signaux))
+    ]
     # Apply Affinity propagation + ORB with best parameters
-    best_spec_8bits = [transfo_8bits(s) for s in spectrogrammes[param_best[0][k]]]
-    # best_spec_8bits = [feature.local_binary_pattern(b, 6, 2) for b in best_spec_8bits]
-    # best_spec_8bits = [transfo_8bits(s) for s in spectrogrammes[param_best[0][k]]]
-    best_detector = cv2.ORB_create(edgeThreshold=0, nlevels=12)
-    best_matcher = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
+    best_spec_8bits = [transfo_8bits(s) for s in best_specs]
     n_specs = len(best_spec_8bits)
     kp_best = [best_detector.detectAndCompute(l, None) for l in best_spec_8bits]
     dist_images = [
@@ -401,6 +408,26 @@ for k in range(len(param_best[0])):
         for j in range(n_specs)
     ]
     dist_images = np.array(dist_images).reshape((n_specs, n_specs))
+    # best_spec_8bits = [transfo_8bits(s) for s in spectrogrammes[param_best[0][k]]]
+    # n_specs = len(best_spec_8bits)
+    # dist_images = np.zeros((n_specs, n_specs))
+    # for i in range(n_specs):
+    #     for j in range(n_specs):
+    #         img_i = best_spec_8bits[i]
+    #         img_j = best_spec_8bits[j]
+    #         shift, _, _ = phase_cross_correlation(img_i, img_j)
+    #         shift = int(shift[1])
+    #         if shift > 0:
+    #             img_j = img_j[:, shift:]
+    #         else:
+    #             img_i = img_i[:, abs(shift) :]
+    #         kp_best = [best_detector.detectAndCompute(l, None) for l in [img_i, img_j]]
+    #         if len(kp_best[0][0]) > 0 and len(kp_best[1][0]) > 0:
+    #             dist_images[i, j] = distance_matches(
+    #                 best_matcher, kp_best[0], kp_best[1], n_features_best
+    #             )
+    #         else:
+    #             dist = 1e10
     clustering_tech = AffinityPropagation()
     clusters = clustering_tech.fit_predict(dist_images)
     clusters_list.append(clusters)
@@ -416,32 +443,15 @@ for c in clusters_list:
 for c in np.unique(clusters_list[0]):
     print(noms[clusters_list[0] == c])
 
-
-# https://stackoverflow.com/questions/79000140/repeating-a-pattern-sample-using-orb-feature-matching-with-open-cv
-# this is convolution
-def spec_of_spec(spec):
-    spec_spec = cv2.dft(spec)
-    # multiplied = cv2.mulSpectrums(spec_spec, spec_spec, 0, conjB=True)
-    # convolved = cv2.idft(multiplied)
-    # # shift it for display
-    # convolved = np.fft.fftshift(convolved)
-    # return convolved
-    return abs(spec_spec)
-
-
-plt.subplot(211)
-plt.imshow(spec_of_spec(spectrogrammes[param_best[0][1]][10]))
-plt.subplot(212)
-plt.imshow(spec_of_spec(spectrogrammes[param_best[0][1]][11]))
-plt.show()
-
-# => best features: indice 1 = 2eme element
-wlen_best = wlen_test[param_best[0][1]]
-wlen_env_best = wlen_env_test[param_best[0][1]]
-n_features_best = n_features[param_best[1][1]]
-# => fft wlen = 512 ; wlen env = 2048
-# feature number = 22
-best_spec_8bits = [transfo_8bits(s) for s in spectrogrammes[param_best[0][1]]]
+# => best features: dernier élément
+wlen_best = 0.0486
+wlen_env_best = 0.1222368
+n_features_best = 39
+best_specs = [
+    spec(signaux[k], wlen_best, ovlp, wlen_env_best, ovlp_env, freq_ech, f_filt)
+    for k in range(len(signaux))
+]
+best_spec_8bits = [transfo_8bits(s) for s in best_specs]
 n_specs = len(best_spec_8bits)
 best_detector = cv2.ORB_create(edgeThreshold=1, nlevels=7)
 best_matcher = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
@@ -452,28 +462,50 @@ dist_images = [
     for j in range(n_specs)
 ]
 dist_images = np.array(dist_images).reshape((n_specs, n_specs))
-clustering_tech = AffinityPropagation(max_iter=400, damping=0.75)
+clustering_tech = AffinityPropagation()
 clusters = clustering_tech.fit_predict(dist_images)
 
 # Associate images with keypoints
 for k in range(n_specs):
     img = cv2.drawKeypoints(
         best_spec_8bits[k],
-        kp_best[k][0][:n_features_best],
+        kp_best[k][0],
         None,
-        flags=cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS,
+        # flags=cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS,
     )
     cv2.imwrite("Spectro_keypoints/" + noms[k].split(".wav")[0] + ".jpg", img)
 
-# Get names of each cluster
+# Get filenames of each cluster
 for c in np.unique(clusters):
-    print(noms[clusters_list[1] == c])
+    print(noms[clusters == c])
+
+# Mean distance between males
+# Distance between each male
+np.mean(dist_images)
+mean_dist = []
+for i in uniq_ind:
+    ind_i = np.nonzero(indiv == i)[0]
+    for j in uniq_ind:
+        ind_j = np.nonzero(indiv == j)[0]
+        mm = dist_images[ind_i, :][:, ind_j]
+        mean_dist.append(np.mean(mm))
+
+mean_dist = np.array(mean_dist).reshape(len(uniq_ind), len(uniq_ind))
+plt.imshow(mean_dist)
+for (j, i), label in np.ndenumerate(mean_dist):
+    plt.text(i, j, int(label), ha="center", va="center")
+
+plt.xticks(ticks=np.arange(len(uniq_ind)), labels=uniq_ind)
+plt.xlabel("Nom des mâles")
+plt.yticks(ticks=np.arange(len(uniq_ind)), labels=uniq_ind)
+plt.ylabel("Nom des mâles")
+plt.suptitle("Distance moyenne inter-mâles calculé sur les features")
+plt.show()
 
 # Confusion matrix
 uniq_clust = np.unique(clusters)
-uniq_indiv = np.unique(indiv)
-conf_mat = np.zeros((len(uniq_indiv), len(uniq_clust)))
-for i_u, u in enumerate(uniq_indiv):
+conf_mat = np.zeros((len(uniq_ind), len(uniq_clust)))
+for i_u, u in enumerate(uniq_ind):
     conf_mat[i_u] = [
         np.sum(np.array([indiv == u]) * np.array([clusters == c])) for c in uniq_clust
     ]
@@ -484,280 +516,7 @@ for (j, i), label in np.ndenumerate(conf_mat):
 
 plt.xticks(ticks=np.arange(len(uniq_clust)), labels=uniq_clust)
 plt.xlabel("Numéro des clusters")
-plt.yticks(ticks=np.arange(len(uniq_indiv)), labels=uniq_indiv)
+plt.yticks(ticks=np.arange(len(uniq_ind)), labels=uniq_ind)
 plt.ylabel("Nom des mâles")
 plt.title("Répartition des mâles au sein des clusters")
-plt.show()
-
-
-def calc_proba(affinity_propagation_instance):
-    d = -affinity_propagation_instance.affinity_matrix_
-    center_ind = affinity_propagation_instance.cluster_centers_indices_
-    labels = affinity_propagation_instance.labels_
-    proba = []
-    proba_center = [
-        1
-        - np.mean(d[center_ind[u], labels == u])
-        / np.mean(d[center_ind[u], labels != u])
-        for u in np.unique(labels)
-    ]
-    for i_l, l in enumerate(labels):
-        proba_in_cluster = 1 - d[i_l, center_ind[l]] / np.mean(
-            d[i_l, np.delete(center_ind, l)]
-        )
-        proba.append(proba_center[l] * proba_in_cluster)
-    return proba
-
-
-calc_proba(clustering_tech)
-
-gmm = GaussianMixture(
-    n_components=np.max(clusters) + 1,
-).fit_predict(-clustering_tech.affinity_matrix_)
-
-
-# Generate reference data from a uniform distribution
-# Adapted from: https://www.geeksforgeeks.org/gap-statistics-for-optimal-number-of-cluster/
-def generate_reference_data(X):
-    rng = np.random.default_rng(seed=42)
-    return rng.uniform(low=X.min(axis=0), high=X.max(axis=0), size=X.shape)
-
-
-def within_cluster_sum_of_squares(X, labels):
-    # Adapted from the gapstat library: https://github.com/jmmaloney3/gapstat
-    """Calculate the pooled within-cluster sum of squares (W) for
-    the clustering defined by the specified labels.
-
-    Parameters
-    ----------
-    X : array-like, sparse matrix or dataframe, shape=[n_samples, n_features]
-        The observations that were clustered.
-    labels : array-like, shape=[n_samples]
-        The labels identifying the cluster that each sample belongs to.
-    """
-    # initialize W to zero
-    W = 0
-    # -- iterate over the clusters and calculate the pairwise distances for
-    # -- the points
-    for c_label in np.unique(labels):
-        c_k = X[labels == c_label]
-        d_k = m.pairwise.euclidean_distances(c_k, c_k, squared=True)
-        n_k = len(c_k)
-        # multiply by 0.5 because each distance is included in the sum twice
-        W = W + (0.5 * d_k.sum()) / (2 * n_k)
-    # return the result
-    return W
-
-
-def gap_stat(X, cluster_labels, n_iter=20):
-    # Adapted from the gapstat library: https://github.com/jmmaloney3/gapstat
-    print("ah!")
-
-
-sil = []
-# bic = []
-rand = []
-sum_sq = []
-n_clust = np.arange(2, n_specs)
-for c in n_clust:
-    clustering_tech = GaussianMixture(
-        n_components=c, max_iter=300, n_init=10, init_params="k-means++"
-    )
-    clustering_tech = AffinityPropagation()
-    cluster = clustering_tech.fit_predict(dist_images)
-    sil.append(m.silhouette_score(dist_images, cluster))
-    # bic.append(clustering_tech.bic(dist_images))
-    sum_sq.append(within_cluster_sum_of_squares(dist_images, cluster))
-    rand.append(m.rand_score(indiv, cluster))
-
-d_sum_sq = np.diff(sum_sq)
-d_sum_sq = np.insert(d_sum_sq, 0, 0)
-plt.plot(n_clust, sil / max(sil), label="Silhouette")
-# plt.plot(n_clust, bic / max(bic), label="AIC")
-plt.plot(n_clust, d_sum_sq, label="Within cluster sum of squares")
-plt.plot(n_clust, rand, label="Rand Index")
-plt.legend()
-plt.show()
-
-# Qualite modèle en fonction des paramètres d'umap
-parametres = product(voisins, d, n_comp)
-parametres = np.array([p for p in parametres])
-qualite_modele = np.zeros((len(wlen), parametres.shape[0]))
-t1 = time.time()
-for i, sp in enumerate(spectrogrammes):
-    s_flat = np.array([s.T.ravel() for s in sp])
-    qualite_UMAP = np.array(
-        [eval_UMAP(s_flat, int_ind, int(p[0]), p[1], int(p[2])) for p in parametres]
-    )
-    qualite_modele[i] = qualite_UMAP
-    print(str(i) + " / " + str(len(spectrogrammes)))
-
-t2 = time.time()
-print("Qualité modèle : " + str(t2 - t1))  # 71.16 secs
-T2 = time.time()
-print("Temps total d'execution" + str(T2 - T1))
-# Sauve en CSV
-qualite_df = pd.DataFrame(qualite_modele)
-qualite_df.to_csv("resultats_calibrage_UMAP.csv", sep=",")
-# Pour reprendre le travail après sauvegarde
-qualite_modele = np.loadtxt("resultats_calibrage_UMAP.csv", delimiter=",", skiprows=1)
-qualite_modele = qualite_modele[:, 1:]
-# Resultats sous forme de matrice
-plt.imshow(qualite_modele, cmap=cc.cm.fire)
-plt.xticks(ticks=np.arange(len(parametres)))
-plt.xlabel("Nombre de voisins pour UMAP")
-plt.yticks(ticks=np.arange(len(wlen)), labels=wlen)
-plt.ylabel("Taille de fenêtre")
-plt.suptitle("Indice silhouette")
-plt.colorbar(fraction=0.01, pad=0.04)
-plt.show()
-
-print("Rand max : ", np.max(qualite_modele))
-print(np.where(qualite_modele == np.max(qualite_modele)))
-
-### Générer et visualiser le modèle
-param_best = np.where(qualite_modele == np.max(qualite_modele))
-param_best = (param_best[0][0], param_best[1][0])
-wlen[param_best[0]]  # => 1024
-param_select = parametres[param_best[1]].astype(
-    int
-)  # => voisins : 12/distance : 0/nombre composantes : 52
-spectro_best = spectrogrammes[param_best[0]]
-spectro_best_flat = np.array([s.T.ravel() for s in spectro_best])
-model_UMAP_CC = umap.UMAP(
-    n_components=param_select[2],
-    min_dist=param_select[1],
-    n_neighbors=param_select[0],
-    random_state=graine,
-).fit(spectro_best_flat, y=int_ind)
-sous_espace_CC = model_UMAP_CC.transform(spectro_best_flat)
-plt.scatter(sous_espace_CC[:, 0], sous_espace_CC[:, 1], c=int_ind)
-plt.show()
-
-### Clustering dessus
-from sklearn.mixture import GaussianMixture
-
-silhouette_CC = []
-for n in range(2, sous_espace_CC.shape[0]):
-    g_alp = GaussianMixture(n).fit_predict(sous_espace_CC)
-    silhouette_CC.append(m.silhouette_score(sous_espace_CC, g_alp))
-plt.plot(np.arange(2, sous_espace_CC.shape[0]), silhouette_CC)
-plt.show()
-gmm_CC = GaussianMixture(9).fit_predict(sous_espace_CC)
-cm_CC = m.confusion_matrix(gmm_CC, int_ind)
-
-### Test sur jeu de données autres : Alpyr
-# Repertoire de travail
-wd_test = "Alpyr_2010-2013_modif/CC"
-# Recuperation des sons filtrés
-t1 = time.time()
-alpyr_noms, alpyr, alpyr_fs = filtre_sons(wd_test)
-t2 = time.time()
-print("Filtration : " + str(t2 - t1))  # 21.33 secs
-# Récupération des populations + individus
-alpyr_indiv = np.array([son.split("_")[1] for son in alpyr_noms])
-alpyr_int_ind = np.zeros(len(alpyr_indiv))
-for k, ind in enumerate(np.unique(alpyr_indiv)):
-    print((k, ind))
-    alpyr_int_ind[alpyr_indiv == ind] = k
-alpyr_pop = np.array([n[0] for n in alpyr_indiv])
-alpyr_int_pop = np.zeros(len(alpyr_pop))
-alpyr_int_pop[alpyr_pop == "P"] = 1
-# Transformation en spectros
-t1 = time.time()
-spectro_alpyr = [
-    spec(
-        alpyr[k],
-        wlen[param_best[0]],
-        ovlp,
-        wlen_env,
-        ovlp_env,
-        alpyr_fs[k],
-        max_dur,
-        f_filt,
-    )
-    for k in range(len(alpyr))
-]
-spectro_alpyr_flat = np.array([s.T.ravel() for s in spectro_alpyr])
-t2 = time.time()
-print("Spectro : " + str(t2 - t1))  # 12.36 secs
-t1 = time.time()
-sous_espace_alpyr = model_UMAP_CC.transform(spectro_alpyr_flat)
-t2 = time.time()
-print("UMAP : " + str(t2 - t1))  # 12.36 secs
-plt.subplot(221)
-plt.suptitle("Répartition des populations")
-plt.scatter(sous_espace_alpyr[:, 0], sous_espace_alpyr[:, 1], c=alpyr_int_pop)
-plt.subplot(222)
-plt.suptitle("Répartition de tous les individus")
-plt.scatter(sous_espace_alpyr[:, 0], sous_espace_alpyr[:, 1], c=alpyr_int_ind)
-plt.subplot(223)
-plt.suptitle("Répartition des individus des Alpes")
-plt.scatter(
-    sous_espace_alpyr[alpyr_pop == "A", 0],
-    sous_espace_alpyr[alpyr_pop == "A", 1],
-    c=alpyr_int_ind[alpyr_pop == "A"],
-)
-plt.subplot(224)
-plt.suptitle("Répartition des individus des Pyrénées")
-plt.scatter(
-    sous_espace_alpyr[alpyr_pop == "P", 0],
-    sous_espace_alpyr[alpyr_pop == "P", 1],
-    c=alpyr_int_ind[alpyr_pop == "P"],
-)
-plt.show()
-
-### Clustering
-from sklearn.cluster import HDBSCAN
-
-hdb = HDBSCAN(min_cluster_size=2)
-cluster_Alp = hdb.fit_predict(sous_espace_alpyr[alpyr_pop == "A", :])
-print(np.unique(cluster_Alp))
-print("Nombre individus Alpes : " + str(len(np.unique(alpyr_indiv[alpyr_pop == "A"]))))
-print("Nombre cluster Alpes : " + str(len(np.unique(cluster_Alp))))
-
-cluster_Pyr = hdb.fit_predict(sous_espace_alpyr[alpyr_pop == "P", :])
-print(np.unique(cluster_Pyr))
-print(
-    "Nombre individus Pyrénées : " + str(len(np.unique(alpyr_indiv[alpyr_pop == "P"])))
-)
-print("Nombre clusters Pyrénées : " + str(len(np.unique(cluster_Pyr))))
-
-cm_alp = m.confusion_matrix(cluster_Alp, alpyr_int_ind[alpyr_pop == "A"])
-cm_alp = cm_alp[~np.all(cm_alp == 0, axis=1), :]
-cm_alp = cm_alp[:, ~np.all(cm_alp == 0, axis=0)]
-cm_pyr = m.confusion_matrix(cluster_Pyr, alpyr_int_ind[alpyr_pop == "P"])
-cm_pyr = cm_pyr[~np.all(cm_pyr == 0, axis=1), :]
-cm_pyr = cm_pyr[:, ~np.all(cm_pyr == 0, axis=0)]
-plt.subplot(121)
-plt.imshow(cm_alp)
-plt.subplot(122)
-plt.imshow(cm_pyr)
-plt.show()
-
-# Gaussian mixture
-from sklearn.mixture import GaussianMixture
-
-n_maxA = len(alpyr_pop[alpyr_pop == "A"])
-n_maxP = len(alpyr_pop[alpyr_pop == "P"])
-sil_pyr = []
-sil_alp = []
-for n in range(2, n_maxA):
-    g_alp = GaussianMixture(n).fit_predict(sous_espace_alpyr[alpyr_pop == "A", :])
-    sil_alp.append(m.silhouette_score(sous_espace_alpyr[alpyr_pop == "A", :], g_alp))
-for n in range(2, n_maxP):
-    g_pyr = GaussianMixture(n).fit_predict(sous_espace_alpyr[alpyr_pop == "P", :])
-    sil_pyr.append(m.silhouette_score(sous_espace_alpyr[alpyr_pop == "P", :], g_pyr))
-plt.plot(np.arange(2, n_maxA), sil_alp)
-plt.plot(np.arange(2, n_maxP), sil_pyr)
-plt.show()
-
-gmm_alp = GaussianMixture(6).fit_predict(sous_espace_alpyr[alpyr_pop == "A", :])
-gmm_pyr = GaussianMixture(2).fit_predict(sous_espace_alpyr[alpyr_pop == "P", :])
-cm_alp2 = m.confusion_matrix(gmm_alp, alpyr_int_ind[alpyr_pop == "A"])
-cm_pyr2 = m.confusion_matrix(gmm_pyr, alpyr_int_ind[alpyr_pop == "P"])
-plt.subplot(121)
-plt.imshow(cm_alp2)
-plt.subplot(122)
-plt.imshow(cm_pyr2)
 plt.show()

@@ -49,9 +49,22 @@ def cluster_spectro(
     return cluster_labels, keypoints_descriptors
 
 
-def save_spectros_keypoints(
-    list_spectros, keypoints_descriptors, names, dir, n_keypoints
-):
+def save_spectros_keypoints(list_spectros, keypoints_descriptors, names, dir):
+    """
+    Get images (here, the combined spectrograms), draw all keypoints identified in it and then save them in a directory.
+
+    Parameters
+    ----------
+    list_spectros: list of 2D arrays, list of the spectrograms.
+    keypoints_descriptors: list of length-2 tuples, containing the keypoints and descriptors of each array in list_spectros.
+    names: list containing the name of the WAV files from which  the spectrograms were drawn.
+    dir: str, directrory where the files will be saved.
+
+    Return
+    ------
+    Returns True for each file correctly saved.
+
+    """
     if not os.path.isdir(dir):
         os.mkdir(dir)
     n_specs = length(list_spectros)
@@ -60,14 +73,13 @@ def save_spectros_keypoints(
             list_spectros[k],
             keypoints_descriptors[k][0][:n_keypoints],
             None,
-            flags=cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS,
         )
         cv2.imwrite(dir + "/" + names[k].split(".wav")[0] + ".jpg", img)
 
 
 def transfo_8bits(arr):
     """
-    Convert a 2D array in 8-bit unsigned integers, for compatibility with OpenCV.
+    Convert a 2D array in 8-bit unsigned integers, for compatibility with OpenCV. The array will be normalize by its maximum.
 
     Parameters
     ----------
@@ -77,7 +89,6 @@ def transfo_8bits(arr):
     -------
     arr_8bits: 2D array, 8-bit unsigned array.
     """
-    arr[arr < 0] = 0
     arr_8bits = 255 * abs(arr / np.max(arr))
     return arr_8bits.astype(np.uint8)
 
@@ -146,7 +157,7 @@ def distance_matches(matcher, des1, des2, n_closest):
 
 def clustering_matches(dist_images, clustering_name="Affinity Propagation"):
     """
-    Cluster images based on their matching distances. As the matching distance matrix is not symetrical, i.e. matching distance (im1,im2) != matching distance (im2,im1), the matching distance matrix will be considered as a normal data array and the euclidean distance will be performed by the clustering algorithm. For clustering algorithms where the number of clusters needs to be selected, the silhouette score is used.
+    Cluster images based on their matching distances. The resulting distance matrix will be considered as a normal data array and the euclidean distance will be performed by the clustering algorithm. For clustering algorithms where the number of clusters needs to be selected, the silhouette score is used.
 
     Parameters
     ----------

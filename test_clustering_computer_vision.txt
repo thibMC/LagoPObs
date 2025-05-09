@@ -1,5 +1,6 @@
 Rand score max :
-=> 0,9219 ORB + affinity propagation
+=> 0,9259 ORB + affinity propagation
+    => completness : 0.822596042333966
 => 0.9028 SIFT + affinity propagation
 => 0.9120 KAZE + affinity propagation
 => 0.9169 AKAZE + affinity propagation
@@ -13,7 +14,7 @@ Rand score max :
 
 => 0.8478 pour SIFT + gmm
 => Problème pour AKAZE + gmm
-=> 0.9046 pour ORB + gmm : 0.9059, utilisé pour 54 features et taille fenêtre 512 => plus consistent
+=> 0.9046 pour ORB + gmm
 => 0.8920 pour KAZE + gmm
 => 0.0000 brisk + gmm (à faire)
 
@@ -38,3 +39,7 @@ Rand score max :
 => 0.3296 pour ORB + MeanShift
 => 0.4781 pour AKAZE + MeanShift
 => 0.2840 pour SIFT/FLANN + MeanShift
+
+
+
+=> LagoNet + Affinity : 0.7540

@@ -81,7 +81,7 @@ def calc_env(signal):
 
 def resize_merge_spec(spec1, spec2):
     """
-    Resize and merge two 2D arrays, here the results of two stfts.
+    Resize and merge two 2D arrays, here the results of two STFTs.
 
     Parameters
     ----------

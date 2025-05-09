@@ -1,10 +1,16 @@
 import sys
 import os
+import time
 import tkinter as tk
 from tkinter import ttk
 from tkinter.messagebox import showwarning, showerror, askyesno
 from tkinter import filedialog
 from tkinter import font
+import pandas as pd
+from ptarmigan.analysis.tools import filter_wavs, import_wavs, pad_signals
+from ptarmigan.analysis.filtering import butterfilter, wlt_denoise
+from ptarmigan.analysis.spectro import draw_specs
+from ptarmigan.analysis.image_matching import cluster_spectro, save_spectros_keypoints
 
 # Variables
 # List of choices of window length
@@ -12,7 +18,7 @@ win_len_list = ("256", "512", "1024", "2048", "4096", "8192")
 # List of choices for overlap
 overlap_list = [str(k) for k in range(5, 100, 5)]
 # Default values for rock ptarmigan
-default_lago_vars = ["Yes", "980", "2800", "1024", "75", "2048", "90", "54", "ORB custom", "Affinity propagation"]
+default_lago_vars = ["Yes", "980", "2800", "512", "75", "2048", "90", "15", "ORB custom", "Affinity propagation"]
 # Option for wavelet filtering
 wlt_filt_list = ["Yes", "No"]
 # Choice list for feature extraction algorithm
@@ -39,7 +45,7 @@ class LagoPopObsUI(tk.Tk):
         # Geometry of window
         self.geometry("1000x900")
         self.resizable(True, False)
-        # Variables
+        # Variables of analysis
         self.dir_input = tk.StringVar(self, os.getcwd())
         self.dir_output = tk.StringVar(self, os.getcwd())
         self.wavelet_filt = tk.StringVar(self, default_lago_vars[0])
@@ -138,7 +144,7 @@ class LagoPopObsUI(tk.Tk):
         combo_ovlp_env["values"] = overlap_list
         combo_ovlp_env["state"] = "readonly"
         combo_ovlp_env.grid(row=15, column=1, **default_grid)
-        # Number of n_features
+        # Number of features
         lab_n_features = ttk.Label(text="Number of features to extract:")
         lab_n_features.grid(row=16, column=0, **default_grid)
         entry_n_features = ttk.Entry(self, textvariable=self.n_features)
@@ -222,7 +228,6 @@ class LagoPopObsUI(tk.Tk):
                         "- The %s is a decimal, it will be rounded to the closest integer."
                         % (v[1])
                     )
-        print(list_problems)
         # Check that maximum frequency > minimum frequency
         if not any(["frequency" in p for p in list_problems]):
             if float(vars_value[0]) >= float(vars_value[1]):
@@ -255,6 +260,8 @@ class LagoPopObsUI(tk.Tk):
                 "Envelope window length: ",
                 "Envelope overlap (%): ",
                 "Number of features: ",
+                "Feature extraction algorithm: "
+                "Clustering algorithm: "
             ]
             param_values = [
                 self.dir_input.get(),
@@ -267,6 +274,8 @@ class LagoPopObsUI(tk.Tk):
                 self.win_env.get(),
                 self.ovlp_env.get(),
                 str(round(float(self.n_features.get()))),
+                self.algo_features,
+                self.algo_clustering
             ]
             param_valid = [p[0] + p[1] for p in zip(param_list, param_values)]
             param_valid = [
@@ -275,7 +284,58 @@ class LagoPopObsUI(tk.Tk):
             answer = askyesno(
                 title="Validation of parameters", message="\n".join(param_valid)
             )
-            print(answer)
+            if answer:
+                # Display a secondary window
+                popup = tk.Toplevel()
+                popup.geometry("500x300")
+                popup.title("State")
+                popup.grab_set() # Main window is disabled
+                # Variable of text to display in popup
+                text_pop = "Importing files..."
+                lab_popup = ttk.Label(popup, text = text_pop)
+                lab_popup.grid(row=0, column=0, rowspan=8)
+                # Import list of WAVs
+                list_wavs = filter_wavs(param_values[0])
+                list_arr, sf = import_wavs(list_wavs, param_values[0], int(param_values[4]))
+                # Update window
+                text_pop += " done!\nFiltering..."
+                lab_popup.config(text=text_pop)
+                # Filter with bandpass
+                band_freq = [int(param_values[3]), int(param_values[4])]
+                list_arr_filt = [butterfilter(a,sf,band_freq) for a in list_arr]
+                # if wavelet filtering selected
+                if param_values[2]=="Yes":
+                    list_arr_filt = [wlt_denoise(a) for a in list_arr_filt]
+                # Pad signals so that they have the same length
+                arr_filt = pad_signals(list_arr_filt)
+                # Update window
+                text_pop += " done!\nDrawing spectrograms..."
+                lab_popup.config(text=text_pop)
+                # Calculate spectrograms
+                wlen = int(param_values[5])
+                ovlp = int(param_values[6])
+                wlen_env = int(param_values[7])
+                ovlp_env = int(param_values[8])
+                spec_lambda = lambda x: draw_specs(x, wlen, ovlp, wlen_env, ovlp_env, sf, band_freq)
+                spectros = np.apply_along_axis(spec_lambda, 0, arr_filt)
+                # Update window
+                text_pop += " done!\nClustering spectrograms..."
+                lab_popup.config(text=text_pop)
+                # Clustering spectrograms
+                clusters, kp_desc = cluster_spectro(spectros, int(param_values[9]), param_values[10], param_values[11])
+                # Update window
+                text_pop += " done!\nSaving files..."
+                lab_popup.config(text=text_pop)
+                # Save the clustering results
+                df_res = pd.DataFrame(np.column_stack((list_wavs, clusters)), columns=["File","Cluster"])
+                df_res.tocsv(param_values[1] + "/clustering_results.csv", index=False)
+                # Save the spectrograms with the keypoints in it
+                save_spectros_keypoints(spectros, kp_desc, list_wavs, param_values[1])
+                # Update window
+                text_pop += " saved!\nAnalysis finished!"
+                lab_popup.config(text=text_pop)
+                button_finish = ttk.Button(popup, text="Go back to main window", command=popup.destroy)
+                button_finish.grid(row=9, column=0, columnspan=2)
 
 
 if __name__ == "__main__":
