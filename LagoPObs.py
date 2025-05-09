@@ -7,18 +7,13 @@ from tkinter.messagebox import showwarning, showerror, askyesno
 from tkinter import filedialog
 from tkinter import font
 import pandas as pd
-from LagoPObs.tools.utils import filter_wavs, import_wavs, pad_signals
-from LagoPObs.tools.filtering import butterfilter, wlt_denoise
-from LagoPObs.tools.spectro import draw_specs
-from LagoPObs.tools.image_matching import cluster_spectro, save_spectros_keypoints
+from tools import utils, filtering, spectro, image_matching
 
 # Variables
-# List of choices of window length
-win_len_list = ("256", "512", "1024", "2048", "4096", "8192")
 # List of choices for overlap
 overlap_list = [str(k) for k in range(5, 100, 5)]
 # Default values for rock ptarmigan
-default_lago_vars = ["Yes", "980", "2800", "512", "75", "2048", "90", "15", "ORB custom", "Affinity propagation"]
+default_lago_vars = ["Yes", "980", "2800", "281", "75", "708", "90", "15", "ORB custom", "Affinity propagation"]
 # Option for wavelet filtering
 wlt_filt_list = ["Yes", "No"]
 # Choice list for feature extraction algorithm
@@ -34,16 +29,15 @@ class LagoPopObsUI(tk.Tk):
         for i in range(20):
             self.grid_rowconfigure(i, weight=0)
         # Columns
-        for j in range(2):
-            self.grid_columnconfigure(j, weight=1, uniform="same_group")
-            # self.grid_columnconfigure(j, weight=1)
+        self.grid_columnconfigure(0, weight=1, uniform="same_group")
+        self.grid_columnconfigure(1, weight=2, uniform="same_group")
         # Default configurations for each element of the grid
         default_grid = {"padx": 2, "pady": 2, "sticky": "nsew"}
         default_separator = {"padx": 10, "pady": 10, "sticky": "nsew"}
         # Window title
         self.title("lagoPopObs")
         # Geometry of window
-        self.geometry("1000x900")
+        self.geometry("1000x1000")
         self.resizable(True, False)
         # Variables of analysis
         self.dir_input = tk.StringVar(self, os.getcwd())
@@ -61,8 +55,7 @@ class LagoPopObsUI(tk.Tk):
         # Welcome text
         lab_welcome = ttk.Label(
             self, wraplength=1000,
-            text="Welcome to the Lagopède Population Observator, in short LagoPObs, developped by Reef pulse SAS for the LPO. This software was designed initially to cluster rock ptarmigan males according to each type of their vocalisations, based on the difference of spectrograms.\nPotentially, it could be used to separate other type of sounds\nby tinkering the analysis parameters but with no guarantee of results. \n",
-        )
+        text="Welcome to the Lagopède Population Observator, in short LagoPObs, developped by Reef pulse SAS for the LPO AuRA (Ligue de Protection des Oiseaux Auvergne Rhône-Alpes). This software was designed initially to cluster rock ptarmigan males according to each type of their vocalisations, based on the differences of their spectrograms.\nPotentially, it could be used to separate other type of sounds by tinkering the analysis parameters but with no guarantee of results.\n The software accepts sounds with different sampling frequencies and will resample each sound to the same sampling frequency, according to the highest frequency:\nsampling frequency = 2 x (highest frequency + 100)")
         lab_welcome.grid(row=0, column=0, columnspan=2, **default_separator)
         # Separator
         ttk.Separator(self, orient="horizontal").grid(
@@ -73,7 +66,7 @@ class LagoPopObsUI(tk.Tk):
         #  ttk.Separator(self, orient="horizontal").grid(row=1, column=1, columnspan=3, sticky='nse')
         # Input folder
         lab_dir_input = ttk.Label(text="Input folder containing wav files to study")
-        lab_dir_input.grid(row=3, column=0, columnspan=2, **default_grid)
+        lab_dir_input.grid(row=3, column=0, **default_grid)
         button_dir_input = ttk.Button(
             self, text="Select input folder:", command=self.input_folder
         )
@@ -98,7 +91,7 @@ class LagoPopObsUI(tk.Tk):
             row=7, column=0, columnspan=2, sticky="ew", pady=20
         )
         lab_params = ttk.Label(text="Analysis parameters")
-        lab_params.grid(row=8, column=0, columnspan=2, **default_separator)
+        lab_params.grid(row=8, column=0, columnspan=3, **default_separator)
         # Apply wavelet filtering or not?
         lab_wlt_filt = ttk.Label(text="Wavelet filtering:")
         lab_wlt_filt.grid(row=9, column=0, **default_grid)
@@ -119,10 +112,8 @@ class LagoPopObsUI(tk.Tk):
         # Window length for Short-Term Fourier Transform on sound
         lab_win_fft = ttk.Label(text="Window length for STFT of sound:")
         lab_win_fft.grid(row=12, column=0, **default_grid)
-        combo_win_fft = ttk.Combobox(self, textvariable=self.win_fft)
-        combo_win_fft["values"] = win_len_list
-        combo_win_fft["state"] = "readonly"
-        combo_win_fft.grid(row=12, column=1, **default_grid)
+        entry_win_fft = ttk.Entry(self, textvariable=self.win_fft)
+        entry_win_fft.grid(row=12, column=1, **default_grid)
         # Overlap in percent for Short-Term Fourier Transform on sound
         lab_ovlp_fft = ttk.Label(text="Overlap (in %) for STFT of sound:")
         lab_ovlp_fft.grid(row=13, column=0, **default_grid)
@@ -133,10 +124,8 @@ class LagoPopObsUI(tk.Tk):
         # Window length for Short-Term Fourier Transform on sound
         lab_win_env = ttk.Label(text="Window length for STFT of envelope:")
         lab_win_env.grid(row=14, column=0, **default_grid)
-        combo_win_env = ttk.Combobox(self, textvariable=self.win_env)
-        combo_win_env["values"] = win_len_list
-        combo_win_env["state"] = "readonly"
-        combo_win_env.grid(row=14, column=1, **default_grid)
+        entry_win_env = ttk.Entry(self, textvariable=self.win_env)
+        entry_win_env.grid(row=14, column=1, **default_grid)
         # Overlap in percent for Short-Term Fourier Transform on envelope
         lab_ovlp_env = ttk.Label(text="Overlap (in %) for STFT of envelope:")
         lab_ovlp_env.grid(row=15, column=0, **default_grid)
@@ -214,9 +203,9 @@ class LagoPopObsUI(tk.Tk):
         # Check that output folder exists
         if not os.path.isdir(self.dir_output.get()):
             list_problems.append("- Your output folder does not exist.")
-        # Check that the minimum frequency, maximum frequency and number of features are integers
-        vars_value = [v.get() for v in [self.fmin, self.fmax, self.n_features]]
-        vars_name = ["lowest frequency", "highest frequency", "number of features"]
+        # Check that the window length of both STFTs, minimum frequency, maximum frequency and number of features are integers
+        vars_value = [v.get() for v in [self.win_fft, self.win_env, self.fmin, self.fmax, self.n_features]]
+        vars_name = ["window length", "envelope window length", "lowest frequency", "highest frequency", "number of features"]
         for v in zip(vars_value, vars_name):
             try:
                 float_n = float(v[0])
@@ -230,12 +219,12 @@ class LagoPopObsUI(tk.Tk):
                     )
         # Check that maximum frequency > minimum frequency
         if not any(["frequency" in p for p in list_problems]):
-            if float(vars_value[0]) >= float(vars_value[1]):
+            if float(vars_value[2]) >= float(vars_value[3]):
                 list_problems.append("- The lowest frequency is superior or equal to the highest frequency.")
         # Check that the number of features to extract is not too high (>500)
         if not any(["features" in p for p in list_problems]):
-            if float(vars_value[2]) > 500:
-                list_problems.append("- The number of features to extract is too high.")
+            if float(vars_value[-1]) > 500:
+                list_problems.append("- The number of features to extract is too high (>500).")
         # if there are any errors or warnings, display them
         if list_problems:
             list_problems += list_warnings
@@ -295,19 +284,19 @@ class LagoPopObsUI(tk.Tk):
                 lab_popup = ttk.Label(popup, text = text_pop)
                 lab_popup.grid(row=0, column=0, rowspan=8)
                 # Import list of WAVs
-                list_wavs = filter_wavs(param_values[0])
-                list_arr, sf = import_wavs(list_wavs, param_values[0], int(param_values[4]))
+                list_wavs = utils.filter_wavs(param_values[0])
+                list_arr, sf = utils.import_wavs(list_wavs, param_values[0], int(param_values[4]))
                 # Update window
                 text_pop += " done!\nFiltering..."
                 lab_popup.config(text=text_pop)
                 # Filter with bandpass
                 band_freq = [int(param_values[3]), int(param_values[4])]
-                list_arr_filt = [butterfilter(a,sf,band_freq) for a in list_arr]
+                list_arr_filt = [filtering.butterfilter(a,sf,band_freq) for a in list_arr]
                 # if wavelet filtering selected
                 if param_values[2]=="Yes":
-                    list_arr_filt = [wlt_denoise(a) for a in list_arr_filt]
+                    list_arr_filt = [filtering.wlt_denoise(a) for a in list_arr_filt]
                 # Pad signals so that they have the same length
-                arr_filt = pad_signals(list_arr_filt)
+                arr_filt = utils.pad_signals(list_arr_filt)
                 # Update window
                 text_pop += " done!\nDrawing spectrograms..."
                 lab_popup.config(text=text_pop)
@@ -316,21 +305,22 @@ class LagoPopObsUI(tk.Tk):
                 ovlp = int(param_values[6])
                 wlen_env = int(param_values[7])
                 ovlp_env = int(param_values[8])
-                spec_lambda = lambda x: draw_specs(x, wlen, ovlp, wlen_env, ovlp_env, sf, band_freq)
+                spec_lambda = lambda x: spectro.draw_specs(x, wlen, ovlp, wlen_env, ovlp_env, sf, band_freq)
                 spectros = np.apply_along_axis(spec_lambda, 0, arr_filt)
                 # Update window
                 text_pop += " done!\nClustering spectrograms..."
                 lab_popup.config(text=text_pop)
                 # Clustering spectrograms
-                clusters, kp_desc = cluster_spectro(spectros, int(param_values[9]), param_values[10], param_values[11])
+                clusters, kp_desc = image_matching.cluster_spectro(spectros, int(param_values[9]), param_values[10], param_values[11])
+                n_clust = len(np.unique(clusters))
                 # Update window
-                text_pop += " done!\nSaving files..."
+                text_pop += " done, {n_clust} clusters found!\nSaving files..."
                 lab_popup.config(text=text_pop)
                 # Save the clustering results
                 df_res = pd.DataFrame(np.column_stack((list_wavs, clusters)), columns=["File","Cluster"])
                 df_res.tocsv(param_values[1] + "/clustering_results.csv", index=False)
                 # Save the spectrograms with the keypoints in it
-                save_spectros_keypoints(spectros, kp_desc, list_wavs, param_values[1])
+                image_matching.save_spectros_keypoints(spectros, kp_desc, list_wavs, param_values[1])
                 # Update window
                 text_pop += " saved!\nAnalysis finished!"
                 lab_popup.config(text=text_pop)

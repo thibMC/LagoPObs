@@ -8,7 +8,7 @@ import pywt  # pyWavelets
 def butterfilter(
     signal,
     sf,
-    freq_band=[10, int(fs / 2 - 1)],
+    freq_band,
 ):
     """
     Denoise a 1D signal using a very strict bandpass filter (Order 10 butterworth).

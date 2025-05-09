@@ -1,5 +1,4 @@
-# ptarmigan
-Projet LPO sur le Lagopède alpin
+# LagoPObs: Lagopède Population Observator
 
 This code is © T. Marin-Cudraz, REEF PULSE S.A.S, LPO AuRA, 2025, and it is made available under the MIT license enclosed with the software.
 
@@ -9,16 +8,16 @@ T. Marin-Cudraz, Y. Bayle, S. Elise, B. Drillat. LagoPObs: Lagopède Population 
 
 # Installation
 
-The software is bundled with a executable (windows, linux and mac os ?) that requires no dependencies.
+The software is bundled in executables (windows, linux and mac os ?) that requires no dependencies.
 
 However, if you want to execute the python code, you would need to install these libraries:
 
 - With pip:
 
-```python
-pip install numpy scipy scikit-image scikit-learn matplotlib soxr pywavelets pandas
+```
+pip install numpy scipy scikit-image scikit-learn matplotlib soxr pywavelets pandas opencv-python
 ```
 - With conda:
 ```
-conda install numpy scipy scikit-image scikit-learn matplotlib soxr pywavelets pandas
+conda install numpy scipy scikit-image scikit-learn matplotlib soxr pywavelets pandas opencv-python
 ```
