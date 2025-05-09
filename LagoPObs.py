@@ -10,7 +10,7 @@ import pandas as pd
 from LagoPObs.tools.utils import filter_wavs, import_wavs, pad_signals
 from LagoPObs.tools.filtering import butterfilter, wlt_denoise
 from LagoPObs.tools.spectro import draw_specs
-from ptaLagoPObsrmigan.tools.image_matching import cluster_spectro, save_spectros_keypoints
+from LagoPObs.tools.image_matching import cluster_spectro, save_spectros_keypoints
 
 # Variables
 # List of choices of window length

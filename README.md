@@ -15,10 +15,10 @@ However, if you want to execute the python code, you would need to install these
 
 - With pip:
 
-'''python
+'''
 pip install numpy scipy scikit-image scikit-learn matplotlib soxr pywavelets pandas
 '''
-- with conda:
-'''python
+- With conda:
+'''
 conda install numpy scipy scikit-image scikit-learn matplotlib soxr pywavelets pandas
 '''
