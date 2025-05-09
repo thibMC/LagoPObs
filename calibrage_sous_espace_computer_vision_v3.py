@@ -6,7 +6,6 @@ import time
 
 ### Libraries
 import os
-from itertools import product
 import numpy as np
 import scipy.io.wavfile as wav
 from scipy.stats import kurtosis
@@ -16,7 +15,6 @@ import pywt  # pywavelets
 import matplotlib.pyplot as plt
 from PIL import Image
 import sklearn.metrics as m
-import colorcet as cc
 from sklearn.mixture import GaussianMixture
 import pandas as pd
 import cv2
