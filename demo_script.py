@@ -2,16 +2,14 @@
 # Import
 from LagoPObs.tools import utils, filtering, spectro, image_matching
 
-# Variables
+# Variables: same as the default in the GUI
 f_filt = [950, 2800]  # frequency bandwidth
 wlen = 281  # Window length
 ovlp = 75  # overlap spectro
 wlen_env = 706
 ovlp_env = 90  # overlap spectro enveloppe
-input_dir = (
-    "/home/tmc/Documents/LPO_Prestation/Analyses/CCFlaine2017"  # directory with sounds
-)
-output_dir = ""
+input_dir = ""  # directory with sounds
+output_dir = ""  # directory where the results will be saved
 # Wavelet filtering?
 wlt_filt = "Yes"
 
@@ -35,3 +33,10 @@ spectros = [
     for a in arr_filt
 ]
 clusters, kp_desc = image_matching.cluster_spectro(spectros, n_features_best)
+# Save the spectrograms with the keypoints in it
+image_matching.save_spectros_keypoints(spectros, kp_desc, list_wavs, output_dir)
+# Save the clustering results
+df_res = pd.DataFrame(
+    np.column_stack((list_wavs, clusters)), columns=["File", "Cluster"]
+)
+df_res.to_csv(param_values[1] + "/clustering_results.csv", index=False)

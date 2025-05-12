@@ -8,7 +8,7 @@ T. Marin-Cudraz, Y. Bayle, S. Elise, B. Drillat. LagoPObs: Lagopède Population 
 
 # Installation
 
-The software is bundled in executables (windows, linux and mac os ?) that requires no dependencies.
+The software is available as executables (windows, linux and mac os ?) that requires no dependencies.
 
 However, if you want to execute the python code, you would need to install these libraries:
 
@@ -21,3 +21,10 @@ pip install numpy scipy scikit-image scikit-learn matplotlib soxr pywavelets pan
 ```
 conda install numpy scipy scikit-image scikit-learn matplotlib soxr pywavelets pandas opencv-python
 ```
+
+# Running the software
+
+## With the GUI
+
+### Executable
+If you want to use the windows ex

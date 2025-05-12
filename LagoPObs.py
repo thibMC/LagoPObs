@@ -38,7 +38,7 @@ class LagoPopObsUI(tk.Tk):
         # Window title
         self.title("lagoPopObs")
         # Geometry of window
-        self.geometry("1000x1000")
+        self.geometry("1000x950")
         self.resizable(True, False)
         # Variables of analysis
         self.dir_input = tk.StringVar(self, os.getcwd())
@@ -56,7 +56,7 @@ class LagoPopObsUI(tk.Tk):
         # Welcome text
         lab_welcome = ttk.Label(
             self, wraplength=1000,
-        text="Welcome to the Lagopède Population Observator, in short LagoPObs, developped by Reef pulse SAS for the LPO AuRA (Ligue de Protection des Oiseaux Auvergne Rhône-Alpes). This software was designed initially to cluster rock ptarmigan males according to each type of their vocalisations, based on the differences of their spectrograms.\nPotentially, it could be used to separate other type of sounds by tinkering the analysis parameters but with no guarantee of results.\n The software accepts sounds with different sampling frequencies and will resample each sound to the same sampling frequency, according to the highest frequency:\nsampling frequency = 2 x (highest frequency + 100)")
+        text="Welcome to the Lagopède Population Observator, in short LagoPObs, developped by Reef pulse SAS for the LPO AuRA (Ligue de Protection des Oiseaux Auvergne Rhône-Alpes). This software was designed initially to cluster rock ptarmigan males according to each type of their vocalisations, based on the differences of their spectrograms.\nPotentially, it could be used to separate other type of sounds by tinkering the analysis parameters but with no guarantee of results.\nThe software accepts sounds with different sampling frequencies and will resample each sound to the same sampling frequency, according to the highest frequency:\nsampling frequency = 2 x (highest frequency + 100)")
         lab_welcome.grid(row=0, column=0, columnspan=2, **default_separator)
         # Separator
         ttk.Separator(self, orient="horizontal").grid(
@@ -66,8 +66,8 @@ class LagoPopObsUI(tk.Tk):
         lab_folders.grid(row=2, column=0, columnspan=2, **default_separator)
         #  ttk.Separator(self, orient="horizontal").grid(row=1, column=1, columnspan=3, sticky='nse')
         # Input folder
-        lab_dir_input = ttk.Label(text="Input folder containing wav files to study")
-        lab_dir_input.grid(row=3, column=0, **default_grid)
+        lab_dir_input = ttk.Label(text="Input folder containing wav files to analyze")
+        lab_dir_input.grid(row=3, column=0, **default_grid, columnspan=2)
         button_dir_input = ttk.Button(
             self, text="Select input folder:", command=self.input_folder
         )
@@ -185,6 +185,15 @@ class LagoPopObsUI(tk.Tk):
             self.dir_output.set(folder)
             self.text_dir_input.configure(state="disabled")
 
+    def update_progress(self, new_text="", add_value=20):
+        value = self.progress_var.get()
+        value += add_value
+        self.progress_var.set(value)
+        self.progress_bar["value"] = value
+        text = self.text_pop.get()
+        text += new_text
+        self.text_pop.set(text)
+
     def validate_proceed(self):
         # Config font size
         font1 = font.Font(name="TkCaptionFont", exists=True)
@@ -276,20 +285,25 @@ class LagoPopObsUI(tk.Tk):
             )
             if answer:
                 # Display a secondary window
-                popup = tk.Toplevel()
-                popup.geometry("500x300")
-                popup.title("State")
-                popup.grab_set() # Main window is disabled
-                # Variable of text to display in popup
-                text_pop = "Importing files..."
-                lab_popup = ttk.Label(popup, text = text_pop)
-                lab_popup.grid(row=0, column=0, rowspan=8)
+                self.popup = tk.Toplevel()
+                self.popup.title("State")
+                self.popup.grab_set() # Main window is disabled
+                # Text to display in popup
+                self.text_pop = tk.StringVar(self, "Importing files...")
+                lab_popup = ttk.Label(self.popup, textvariable = self.text_pop)
+                lab_popup.grid(row=1, column=0, rowspan=8, columnspan=2)
+                # Progress bar
+                self.progress_var = tk.DoubleVar(self.popup, 0)
+                self.progress_bar = ttk.Progressbar(self.popup, orient="horizontal", mode = "determinate", variable=self.progress_var, maximum=100, length=300)
+                self.progress_bar.grid(row=0, column=0, columnspan=2, sticky="nsew")
                 # Import list of WAVs
                 list_wavs = utils.filter_wavs(param_values[0])
                 list_arr, sf = utils.import_wavs(list_wavs, param_values[0], int(param_values[4]))
                 # Update window
-                text_pop += " done!\nFiltering..."
-                lab_popup.config(text=text_pop)
+                # text_pop += " done!\nFiltering..."
+                # lab_popup.config(text=text_pop)
+                self.update_progress(new_text=" done!\nFiltering...")
+                self.popup.update()
                 # Filter with bandpass
                 band_freq = [int(param_values[3]), int(param_values[4])]
                 list_arr_filt = [filtering.butterfilter(a,sf,band_freq) for a in list_arr]
@@ -299,8 +313,10 @@ class LagoPopObsUI(tk.Tk):
                 # Pad signals so that they have the same length
                 arr_filt = utils.pad_signals(list_arr_filt)
                 # Update window
-                text_pop += " done!\nDrawing spectrograms..."
-                lab_popup.config(text=text_pop)
+                # text_pop += " done!\nDrawing spectrograms..."
+                # lab_popup.config(text=text_pop)
+                self.update_progress(new_text=" done!\nDrawing spectrograms...")
+                self.popup.update()
                 # Calculate spectrograms
                 wlen = int(param_values[5])
                 ovlp = int(param_values[6])
@@ -308,23 +324,29 @@ class LagoPopObsUI(tk.Tk):
                 ovlp_env = int(param_values[8])
                 spectros = [spectro.draw_specs(a, wlen, ovlp, wlen_env, ovlp_env, sf, band_freq) for a in arr_filt]
                 # Update window
-                text_pop += " done!\nClustering spectrograms..."
-                lab_popup.config(text=text_pop)
+                # text_pop += " done!\nClustering spectrograms..."
+                # lab_popup.config(text=text_pop)
+                self.update_progress(new_text=" done!\nClustering spectrograms...")
+                self.popup.update()
                 # Clustering spectrograms
                 clusters, kp_desc = image_matching.cluster_spectro(spectros, int(param_values[9]), param_values[10], param_values[11])
                 n_clust = len(np.unique(clusters))
                 # Update window
-                text_pop += f" done, {n_clust} clusters found!\nSaving files..."
-                lab_popup.config(text=text_pop)
+                # text_pop += f" done, {n_clust} clusters found!\nSaving files..."
+                # lab_popup.config(text=text_pop)
+                self.update_progress(new_text=f" done, {n_clust} clusters found!\nSaving files...")
+                self.popup.update()
                 # Save the clustering results
                 df_res = pd.DataFrame(np.column_stack((list_wavs, clusters)), columns=["File","Cluster"])
-                df_res.to_csv(param_values[1] + "/clustering_results.csv", index=True)
+                df_res.to_csv(param_values[1] + "/clustering_results.csv", index=False)
                 # Save the spectrograms with the keypoints in it
                 image_matching.save_spectros_keypoints(spectros, kp_desc, list_wavs, param_values[1])
                 # Update window
-                text_pop += " saved!\nAnalysis finished!"
-                lab_popup.config(text=text_pop)
-                button_finish = ttk.Button(popup, text="Go back to main window", command=popup.destroy)
+                # text_pop += " saved!\nAnalysis finished!"
+                # lab_popup.config(text=text_pop)
+                self.update_progress(new_text=" saved!\nAnalysis finished!")
+                self.popup.update()
+                button_finish = ttk.Button(self.popup, text="Go back to main window", command=self.popup.destroy)
                 button_finish.grid(row=9, column=0, columnspan=2)
 
 

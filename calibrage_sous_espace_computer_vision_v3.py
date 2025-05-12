@@ -487,8 +487,6 @@ for k in range(n_specs):
 for c in np.unique(clusters):
     print(noms[clusters == c])
 
-np.column_stack((noms, clusters))
-
 # Mean distance between males
 # Distance between each male
 np.mean(dist_images)
