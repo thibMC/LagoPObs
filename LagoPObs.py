@@ -14,13 +14,34 @@ from tools import utils, filtering, spectro, image_matching
 # List of choices for overlap
 overlap_list = [str(k) for k in range(5, 100, 5)]
 # Default values for rock ptarmigan
-default_lago_vars = ["Yes", "950", "2800", "281", "75", "706", "90", "53", "ORB custom", "Affinity Propagation"]
+default_lago_vars = [
+    "Yes",
+    "950",
+    "2800",
+    "281",
+    "75",
+    "706",
+    "90",
+    "53",
+    "ORB custom",
+    "Affinity Propagation",
+]
 # Option for wavelet filtering
 wlt_filt_list = ["Yes", "No"]
 # Choice list for feature extraction algorithm
 algo_features_list = ["SIFT", "ORB", "ORB custom", "AKAZE", "KAZE"]
 # Choice list for clustering algorithm
-algo_clustering_list = ["Affinity Propagation", "Agglomerative", "Bisecting K-Means", "Gaussian Mixture Model", "HDBSCAN", "K-Means", "Mean Shift"]
+algo_clustering_list = [
+    "Affinity Propagation",
+    "Agglomerative",
+    "Bisecting K-Means",
+    "Gaussian Mixture Model",
+    "HDBSCAN",
+    "K-Means",
+    "Mean Shift",
+]
+
+
 # Main window
 class LagoPopObsUI(tk.Tk):
     def __init__(self):
@@ -36,7 +57,7 @@ class LagoPopObsUI(tk.Tk):
         default_grid = {"padx": 2, "pady": 2, "sticky": "nsew"}
         default_separator = {"padx": 10, "pady": 10, "sticky": "nsew"}
         # Window title
-        self.title("lagoPopObs")
+        self.title("lagoPObs")
         # Geometry of window
         self.geometry("1000x950")
         self.resizable(True, False)
@@ -50,13 +71,15 @@ class LagoPopObsUI(tk.Tk):
         self.ovlp_fft = tk.StringVar(self, default_lago_vars[4])
         self.win_env = tk.StringVar(self, default_lago_vars[5])
         self.ovlp_env = tk.StringVar(self, default_lago_vars[6])
-        self.n_features = tk.StringVar(self, default_lago_vars[7])
+        self.n_matches = tk.StringVar(self, default_lago_vars[7])
         self.algo_features = tk.StringVar(self, default_lago_vars[8])
         self.algo_clustering = tk.StringVar(self, default_lago_vars[9])
         # Welcome text
         lab_welcome = ttk.Label(
-            self, wraplength=1000,
-        text="Welcome to the Lagopède Population Observator, in short LagoPObs, developped by Reef pulse SAS for the LPO AuRA (Ligue de Protection des Oiseaux Auvergne Rhône-Alpes). This software was designed initially to cluster rock ptarmigan males according to each type of their vocalisations, based on the differences of their spectrograms.\nPotentially, it could be used to separate other type of sounds by tinkering the analysis parameters but with no guarantee of results.\nThe software accepts sounds with different sampling frequencies and will resample each sound to the same sampling frequency, according to the highest frequency:\nsampling frequency = 2 x (highest frequency + 100)")
+            self,
+            wraplength=1000,
+            text="Welcome to the Lagopède Population Observator, in short LagoPObs, developped by Reef pulse SAS for the LPO AuRA (Ligue de Protection des Oiseaux Auvergne Rhône-Alpes). This software was designed initially to cluster rock ptarmigan males according to each type of their vocalisations, based on the differences of their spectrograms calculated with classical computer vision algorithms.\nPotentially, it could be used to separate other type of sounds by tinkering the analysis parameters but with no guarantee of results.\nThe software accepts sounds with different sampling frequencies and will resample each sound to the same sampling frequency, according to the highest frequency:\nsampling frequency = 2 x (highest frequency + 100)",
+        )
         lab_welcome.grid(row=0, column=0, columnspan=2, **default_separator)
         # Separator
         ttk.Separator(self, orient="horizontal").grid(
@@ -134,11 +157,11 @@ class LagoPopObsUI(tk.Tk):
         combo_ovlp_env["values"] = overlap_list
         combo_ovlp_env["state"] = "readonly"
         combo_ovlp_env.grid(row=15, column=1, **default_grid)
-        # Number of features
-        lab_n_features = ttk.Label(text="Number of features to extract:")
-        lab_n_features.grid(row=16, column=0, **default_grid)
-        entry_n_features = ttk.Entry(self, textvariable=self.n_features)
-        entry_n_features.grid(row=16, column=1, **default_grid)
+        # Number of matches
+        lab_n_matches = ttk.Label(text="Number of matches:")
+        lab_n_matches.grid(row=16, column=0, **default_grid)
+        entry_n_matches = ttk.Entry(self, textvariable=self.n_matches)
+        entry_n_matches.grid(row=16, column=1, **default_grid)
         # Algorithm to extract features from images
         lab_algo_features = ttk.Label(text="Feature extraction algorithm:")
         lab_algo_features.grid(row=17, column=0, **default_grid)
@@ -213,9 +236,18 @@ class LagoPopObsUI(tk.Tk):
         # Check that output folder exists
         if not os.path.isdir(self.dir_output.get()):
             list_problems.append("- Your output folder does not exist.")
-        # Check that the window length of both STFTs, minimum frequency, maximum frequency and number of features are integers
-        vars_value = [v.get() for v in [self.win_fft, self.win_env, self.fmin, self.fmax, self.n_features]]
-        vars_name = ["window length", "envelope window length", "lowest frequency", "highest frequency", "number of features"]
+        # Check that the window length of both STFTs, minimum frequency, maximum frequency and number of matches are integers
+        vars_value = [
+            v.get()
+            for v in [self.win_fft, self.win_env, self.fmin, self.fmax, self.n_matches]
+        ]
+        vars_name = [
+            "window length",
+            "envelope window length",
+            "lowest frequency",
+            "highest frequency",
+            "number of matches",
+        ]
         for v in zip(vars_value, vars_name):
             try:
                 float_n = float(v[0])
@@ -230,11 +262,15 @@ class LagoPopObsUI(tk.Tk):
         # Check that maximum frequency > minimum frequency
         if not any(["frequency" in p for p in list_problems]):
             if float(vars_value[2]) >= float(vars_value[3]):
-                list_problems.append("- The lowest frequency is superior or equal to the highest frequency.")
-        # Check that the number of features to extract is not too high (>500)
-        if not any(["features" in p for p in list_problems]):
+                list_problems.append(
+                    "- The lowest frequency is superior or equal to the highest frequency."
+                )
+        # Check that the number of matches to extract is not too high (>500)
+        if not any(["matches" in p for p in list_problems]):
             if float(vars_value[-1]) > 500:
-                list_problems.append("- The number of features to extract is too high (>500).")
+                list_problems.append(
+                    "- The number of matches to extract is too high (>500) compared to the number of extracted features."
+                )
         # if there are any errors or warnings, display them
         if list_problems:
             list_problems += list_warnings
@@ -258,9 +294,9 @@ class LagoPopObsUI(tk.Tk):
                 "Overlap (%): ",
                 "Envelope window length: ",
                 "Envelope overlap (%): ",
-                "Number of features: ",
-                "Feature extraction algorithm: "
-                "Clustering algorithm: "
+                "Number of matches: ",
+                "Feature extraction algorithm: ",
+                "Clustering algorithm: ",
             ]
             param_values = [
                 self.dir_input.get(),
@@ -272,9 +308,9 @@ class LagoPopObsUI(tk.Tk):
                 self.ovlp_fft.get(),
                 str(int(float(self.win_env.get()))),
                 self.ovlp_env.get(),
-                str(int(float(self.n_features.get()))),
+                str(int(float(self.n_matches.get()))),
                 self.algo_features.get(),
-                self.algo_clustering.get()
+                self.algo_clustering.get(),
             ]
             param_valid = [p[0] + p[1] for p in zip(param_list, param_values)]
             param_valid = [
@@ -287,18 +323,27 @@ class LagoPopObsUI(tk.Tk):
                 # Display a secondary window
                 self.popup = tk.Toplevel()
                 self.popup.title("State")
-                self.popup.grab_set() # Main window is disabled
+                self.popup.grab_set()  # Main window is disabled
                 # Text to display in popup
                 self.text_pop = tk.StringVar(self, "Importing files...")
-                lab_popup = ttk.Label(self.popup, textvariable = self.text_pop)
+                lab_popup = ttk.Label(self.popup, textvariable=self.text_pop)
                 lab_popup.grid(row=1, column=0, rowspan=8, columnspan=2)
                 # Progress bar
                 self.progress_var = tk.DoubleVar(self.popup, 0)
-                self.progress_bar = ttk.Progressbar(self.popup, orient="horizontal", mode = "determinate", variable=self.progress_var, maximum=100, length=300)
+                self.progress_bar = ttk.Progressbar(
+                    self.popup,
+                    orient="horizontal",
+                    mode="determinate",
+                    variable=self.progress_var,
+                    maximum=100,
+                    length=350,
+                )
                 self.progress_bar.grid(row=0, column=0, columnspan=2, sticky="nsew")
                 # Import list of WAVs
                 list_wavs = utils.filter_wavs(param_values[0])
-                list_arr, sf = utils.import_wavs(list_wavs, param_values[0], int(param_values[4]))
+                list_arr, sf = utils.import_wavs(
+                    list_wavs, param_values[0], int(param_values[4])
+                )
                 # Update window
                 # text_pop += " done!\nFiltering..."
                 # lab_popup.config(text=text_pop)
@@ -306,9 +351,11 @@ class LagoPopObsUI(tk.Tk):
                 self.popup.update()
                 # Filter with bandpass
                 band_freq = [int(param_values[3]), int(param_values[4])]
-                list_arr_filt = [filtering.butterfilter(a,sf,band_freq) for a in list_arr]
+                list_arr_filt = [
+                    filtering.butterfilter(a, sf, band_freq) for a in list_arr
+                ]
                 # if wavelet filtering selected
-                if param_values[2]=="Yes":
+                if param_values[2] == "Yes":
                     list_arr_filt = [filtering.wlt_denoise(a) for a in list_arr_filt]
                 # Pad signals so that they have the same length
                 arr_filt = utils.pad_signals(list_arr_filt)
@@ -322,31 +369,46 @@ class LagoPopObsUI(tk.Tk):
                 ovlp = int(param_values[6])
                 wlen_env = int(param_values[7])
                 ovlp_env = int(param_values[8])
-                spectros = [spectro.draw_specs(a, wlen, ovlp, wlen_env, ovlp_env, sf, band_freq) for a in arr_filt]
+                spectros = [
+                    spectro.draw_specs(a, wlen, ovlp, wlen_env, ovlp_env, sf, band_freq)
+                    for a in arr_filt
+                ]
                 # Update window
                 # text_pop += " done!\nClustering spectrograms..."
                 # lab_popup.config(text=text_pop)
                 self.update_progress(new_text=" done!\nClustering spectrograms...")
                 self.popup.update()
                 # Clustering spectrograms
-                clusters, kp_desc = image_matching.cluster_spectro(spectros, int(param_values[9]), param_values[10], param_values[11])
+                clusters, kp_desc = image_matching.cluster_spectro(
+                    spectros, int(param_values[9]), param_values[10], param_values[11]
+                )
                 n_clust = len(np.unique(clusters))
                 # Update window
                 # text_pop += f" done, {n_clust} clusters found!\nSaving files..."
                 # lab_popup.config(text=text_pop)
-                self.update_progress(new_text=f" done, {n_clust} clusters found!\nSaving files...")
+                self.update_progress(
+                    new_text=f" done, {n_clust} clusters found!\nSaving files..."
+                )
                 self.popup.update()
                 # Save the clustering results
-                df_res = pd.DataFrame(np.column_stack((list_wavs, clusters)), columns=["File","Cluster"])
+                df_res = pd.DataFrame(
+                    np.column_stack((list_wavs, clusters)), columns=["File", "Cluster"]
+                )
                 df_res.to_csv(param_values[1] + "/clustering_results.csv", index=False)
                 # Save the spectrograms with the keypoints in it
-                image_matching.save_spectros_keypoints(spectros, kp_desc, list_wavs, param_values[1])
+                image_matching.save_spectros_keypoints(
+                    spectros, kp_desc, list_wavs, param_values[1]
+                )
                 # Update window
                 # text_pop += " saved!\nAnalysis finished!"
                 # lab_popup.config(text=text_pop)
                 self.update_progress(new_text=" saved!\nAnalysis finished!")
                 self.popup.update()
-                button_finish = ttk.Button(self.popup, text="Go back to main window", command=self.popup.destroy)
+                button_finish = ttk.Button(
+                    self.popup,
+                    text="Go back to main window",
+                    command=self.popup.destroy,
+                )
                 button_finish.grid(row=9, column=0, columnspan=2)
 
 
