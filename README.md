@@ -2,7 +2,7 @@
 
 This code is © T. Marin-Cudraz, REEF PULSE S.A.S, LPO AuRA, 2025, and it is made available under the MIT license enclosed with the software.
 
-Over and above the legal restrictions imposed by this license, if you use this software for an academic publication then you are obliged to provide proper attribution. This can be to this code directly:
+Over and above the legal restrictions imposed by this license, if you use this software for an academic publication then please provide proper attribution. This can be to this code directly:
 
 T. Marin-Cudraz, Y. Bayle, S. Elise, B. Drillat. LagoPObs: Lagopède Population Observator, a software to separate male ptarmigans indivuals from their sounds (2025). github.com/XXXXX.
 
@@ -10,7 +10,7 @@ T. Marin-Cudraz, Y. Bayle, S. Elise, B. Drillat. LagoPObs: Lagopède Population 
 
 The software is available as executables (generated using pyinstaller) for Windows and Linux that requires no dependencies. macOS can still execute the python code (see below) but will need the installation of the dependencies.
 
-However, if you want to execute the python code, you would need to install these libraries:
+If you want to execute the python code, you would need to install these libraries:
 
 - With pip:
 
@@ -27,9 +27,9 @@ conda install numpy scipy scikit-image scikit-learn matplotlib soxr pywavelets p
 ## Using executables
 
 No need to install the libraries if you are using the executables.
-- For Windows users: clone this repo, unzip and go to the folder and double-click on *LagoPObs_windows.exe*.
+- For Windows users: clone/download this repo, unzip and go to the folder and double-click on *LagoPObs_windows.exe*. The software may take a few seconds to open.
 
-- For Linux users: clone this repo, unzip and go to the folder. Double-click on *LagoPObs_linux*. If the application does not start, then make it executable using the terminal:
+- For Linux users: clone/download, unzip this repo and go to the folder. Double-click on *LagoPObs_linux*. If the application does not start, then make it executable using the terminal:
     ```
     chmod +x LagoPobs_linux
     ```
@@ -42,7 +42,7 @@ No need to install the libraries if you are using the executables.
 
 The code was tested for Python 3.9, 3.11, 3.12 and 3.13. There should be no problems with 3.10. The only strict requirement is to have a version of scikit-learn that is 1.3 or higher (inclusion of HDBSCAN).
 Install the required libraries with *pip* or *conda*.
-You will need to clone this repo, unzip and go to the folder.
+You will need to clone/download this repo, unzip and go to the folder.
 If you want to use the GUI (Graphical User Interface), open a terminal and type:
 ```
 python LagPObs.py
@@ -65,13 +65,16 @@ The *Wavelet filtering* option allow to activate/desactivate the option for the 
 
 The lowest and highest frequency set the frequency bandwidth of the bandpass filtering (an order 10 butterworth filter). The *Highest frequency* parameter is really important as it will also conditioned the new sampling rate at which the sounds will be resampled using the formula:
 
-$ new sampling rate = 2*(Highest frequency + 100) $
+```
+new sampling rate = 2*(Highest frequency + 100)
+```
 
-100 is added to avoid frequency aliasing at some frequencies of interest. The choice of the *Highest frequency* is thus critical. It also implies that the temporal resolution of your spectrograms will be modified so be sure to check that the window lengths are still appropriate when modifying this parameters.
+100 is added to avoid frequency aliasing at some frequencies of interest. The choice of the *Highest frequency* is thus critical. It also implies that the temporal resolution of your spectrograms will be modified so be sure to check that the window lengths are still appropriate when modifying this parameter.
 
-The characteristics of the spectrograms of the filtered signal and its envelope can be configured using the next 4 parameters: *Window length* and *Overlap* of STFT (Short-Time Fourier Transform) of sound for the spectrogram of the filtered signal and *Window length* and *Overlap* of envelope. A hamming window is used for both spectrograms and cannot be modified in the interface.
+The characteristics of the spectrograms of the filtered signal and its envelope can be configured using the next 4 parameters: *Window length* and *Overlap* of STFT (Short-Time Fourier Transform) of sound for the spectrogram of the filtered signal and *Window length* and *Overlap* of the STFT for the spectrogram of the envelope. A hamming window is used for both spectrograms and cannot be modified using the interface.
 
-The next two parameters configure the feature extraction and matching. The first choice is made algorithm can be selected in a list of classical ones in OpenCV: ORB [3], Custom ORB is ORB but tuned specifically for spectrograms of Rock ptarmigan, SIFT [4], AKAZE [5], KAZE [6]. As spectrograms are not that complex of an image, ORB or Custom ORB should work fine for most applications and are also the fastest. The goal of those algorithms is to detect critical keypoints in the image that best describe the features of the image. Each keypoint comes with a descriptor, i.e. the local characteristics of the image around the keypoint
+The *Feature extraction algorithm* parameter configures the feature extraction and matching. The goal of those algorithms is to detect critical keypoints in the image that best describe the features of the image. Each keypoint comes with a descriptor, that represents the local characteristics of the image around the keypoint. You can choose a list of classical algorithms taken from OpenCV: ORB [3], Custom ORB is ORB but with parameters tuned specifically for spectrograms of Rock ptarmigan, SIFT [4-5], AKAZE [6], KAZE [7]. ORB or Custom ORB should work fine for most applications and are also the fastest. After the extraction of the keypoints and descriptors
+
 
 
 # References
@@ -87,6 +90,6 @@ The next two parameters configure the feature extraction and matching. The first
 
 [5] https://docs.opencv.org/4.x/da/df5/tutorial_py_sift_intro.html
 
-[5] https://docs.opencv.org/3.4/db/d70/tutorial_akaze_matching.html
+[6] https://docs.opencv.org/3.4/db/d70/tutorial_akaze_matching.html
 
-[6] https://docs.opencv.org/4.x/d3/d61/classcv_1_1KAZE.html
+[7] https://docs.opencv.org/4.x/d3/d61/classcv_1_1KAZE.html
