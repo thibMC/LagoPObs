@@ -70,6 +70,8 @@ def population_presence_index(pi_arr, presence):
     pi_pop: a 1D array, containing the Population Presence Index for a number of cluster ranging from 1 to the total number of cluster
 
     """
+    # From DatFrame to array
+    presence_arr = presence.to_numpy()
     # Get the indices of the decreasing order of PI
     clusters_ordered = np.argsort(pi_arr[:, 3])[::-1]
     # Create the list with the clusters in the growing population
@@ -77,35 +79,19 @@ def population_presence_index(pi_arr, presence):
     # Number of sounds covered by the population
     n_sounds_pop = np.array([np.sum(pi_arr[p, 2]) for p in pops])
     # Number of days where we have at least a cluster of the population
-    sounds_pop_per_day = [np.sum(presence[p, :], axis=0) for p in pops]
+    sounds_pop_per_day = [np.sum(presence_arr[p, :], axis=0) for p in pops]
     n_days_pop = np.array([len(np.nonzero(s)[0]) for s in sounds_pop_per_day])
     # Population presence index
-    pi_pop = (n_sounds_pop / np.sum(presence)) * (n_days_pop / presence.shape[1])
+    pi_pop = (n_sounds_pop / np.sum(presence_arr)) * (
+        n_days_pop / presence_arr.shape[1]
+    )
     return pi_pop
-
-
-def get_date_from_filename(name):
-    """
-    Get the date from a filename.
-
-    Parameters
-    ----------
-    name: str, the filename, must be split in different part, separated by undescores, with the date in the second position and with the following format: yearmonthday.
-    For example:  "xxxxx_20230619_xxxxxx.wav" means that the following file was recorded in June 13, 2023.
-
-    Returns
-    -------
-    date: a date in the datetime.date format (see datetime for further details)
-
-    """
-    d = name.split("_")[1]
-    date = datetime.strptime(d, "%Y%m%d")
-    date = datetime.date(date)
-    return date
 
 
 def daily_vocalize_clusters(df):
     """
+    Get the number of different clusters per date.
+
     Parameters
     ----------
     df: a pandas DataFrame with at least 2 columns. One nammed "Date", composed of dates extracted from filenames, using get_date_from_filename. The other, nammed "Cluster", should contains the results of image_matching.cluster_spectro.
@@ -115,7 +101,7 @@ def daily_vocalize_clusters(df):
     n_clust_voc_per_day: a pandas DataFrame of shape (number of different dates, 3). The first column, "Date", contains the different days of the dataset. The second, "Number_Clusters" contains the number of clusters present per day. The third, "Number_Sounds" represents the number of sounds recorded for each date.
 
     """
-    date_uniq = np.unique(df_cc.Date)
+    date_uniq = np.unique(df.Date)
     nb_clusts = []
     nb_sounds = []
     for d in date_uniq:
@@ -123,7 +109,7 @@ def daily_vocalize_clusters(df):
         nb_clusts.append(len(np.unique(clust)))
         nb_sounds.append(len(clust))
     n_clusts_sounds_per_day = np.column_stack(
-        (date_uniq, np.array(nb_clusts), np.array(nb_vocs))
+        (date_uniq, np.array(nb_clusts), np.array(nb_sounds))
     )
     n_clusts_sounds_per_day = pd.DataFrame(
         n_clusts_sounds_per_day, columns=["Date", "Number_Clusters", "Number_Sounds"]
@@ -160,7 +146,7 @@ def presence_index_arr(df):
     # Number of days where each cluster is present
     nb_days = np.count_nonzero(presence, axis=1)
     # Number of sounds of each cluster
-    nb_sounds = np.sum(presence_cc, axis=1)
+    nb_sounds = np.sum(presence, axis=1)
     # Presence Index
     presence_index = nb_days * nb_sounds / (np.sum(nb_sounds) * presence.shape[1])
     # Array
@@ -197,6 +183,42 @@ def presence_clusters(df):
         for d in days:
             n = len(df.Cluster[np.logical_and(df.Cluster == c, df.Date == d)])
             presence[clusters == c, days == d] = n
-    cluster_index = ["Cluster_" + str(int(c)) for c in clusters]
-    presence = pd.DataFrame(presence, columns=days, index=cluster_index)
-    return presence
+    presence_df = pd.DataFrame(presence, columns=days)
+    return presence_df
+
+
+def get_date_from_filename(name):
+    """
+    Get the date from a filename.
+
+    Parameters
+    ----------
+    name: str, the filename, must be split in different part, separated by undescores, with the date in the second position and with the following format: yearmonthday.
+    For example:  "xxxxx_20230619_xxxxxx.wav" means that the following file was recorded in June 13, 2023.
+
+    Returns
+    -------
+    date: a date in the datetime.date format (see datetime for further details)
+
+    """
+    d = name.split("_")[1]
+    date = datetime.strptime(d, "%Y%m%d")
+    date = datetime.date(date)
+    return date
+
+
+def add_date_to_df(df_clustrering):
+    """
+    Add a "Date" column to a pandas DataFrame resulting from the clustering of the sounds.
+
+    Parameters
+    ----------
+    df_clustering: a pandas DataFrame containing the results of the clustering in the column "Cluster" and the name of each file in the "File" column. The filenames must be split in different part, separated by undescores, with the date in the second position and with the following format: yearmonthday.
+    For example:  "xxxxx_20230619_xxxxxx.wav" means that the following file was recorded in June 13, 2023.
+
+    Returns
+    -------
+    df_clust_with_date: pandas DataFrame, with the "Date" column added.
+    """
+    df_clustrering["Date"] = df_clustrering.File.apply(get_date_from_filename)
+    return df_clustrering

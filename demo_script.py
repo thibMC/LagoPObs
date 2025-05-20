@@ -1,10 +1,12 @@
 ### Demo script
 # Import
-from LagoPObs.tools import utils, filtering, spectro, image_matching
+from LagoPObs.tools import utils, filtering, spectro, image_matching, pop_estimation
+import numpy as np
+import pandas as pd
 
 # Variables: same as the default in the GUI
-input_dir = ""  # directory with sounds
-output_dir = ""  # directory where the results will be saved
+input_dir = "/home/tmc/Documents/LPO_Prestation/Enregistrements/Enregistrements_Modif/2023_Thibaut/CC/"  # directory with sounds
+output_dir = "/home/tmc/Documents/LPO_Prestation/Resultats/Clustering/CC/"  # directory where the results will be saved
 wlt_filt = "Yes"  # Wavelet filtering?
 f_filt = [950, 2800]  # frequency bandwidth
 wlen = 281  # Window length
@@ -14,13 +16,14 @@ ovlp_env = 90  # overlap spectro enveloppe
 n_matches = 53  # number of matches
 detector_methode = "ORB custom"  # Feature extraction algorithm
 clustering = "Affinity Propagation"  # Clustering algorithm
+estim_pop = "Yes"
 
 # Perform analysis
 # filter the WAV filenames in the input directory
-list_wavs = utils.filter_wavs(wd)
+list_wavs = utils.filter_wavs(input_dir)
 # Import the sounds, transform them in float64 arrays
 # and normalize them by their RMS
-list_arr, sf = utils.import_wavs(list_wavs, wd, f_filt[1])
+list_arr, sf = utils.import_wavs(list_wavs, input_dir, f_filt[1])
 # Bandpass filtering
 list_arr_filt = [filtering.butterfilter(a, sf, f_filt) for a in list_arr]
 # Wavelet filtering if wlt_fit == "Yes"
@@ -31,11 +34,11 @@ arr_filt = utils.pad_signals(list_arr_filt)
 spectros = [
     spectro.draw_specs(
         a,
-        int(wlen_best * freq_ech),
-        int(ovlp * 100),
-        int(wlen_env_best * freq_ech),
-        int(ovlp_env * 100),
-        freq_ech,
+        int(wlen),
+        int(ovlp),
+        int(wlen_env),
+        int(ovlp_env),
+        sf,
         f_filt,
     )
     for a in arr_filt
@@ -47,7 +50,43 @@ clusters, kp_desc = image_matching.cluster_spectro(
 # Save the spectrograms with the keypoints in it
 image_matching.save_spectros_keypoints(spectros, kp_desc, list_wavs, output_dir)
 # Save the clustering results
-df_res = pd.DataFrame(
-    np.column_stack((list_wavs, clusters)), columns=["File", "Cluster"]
-)
-df_res.to_csv(param_values[1] + "/clustering_results.csv", index=False)
+# It is really important to create the DataFrame with a dict here,
+# otherwise, it can impede the cluster order and thus the results.
+df_res = pd.DataFrame({"File": list_wavs, "Cluster": clusters})
+df_res.to_csv(output_dir + "/clustering_results.csv", index=False)
+
+# Population estimation
+if estim_pop == "Yes":
+    try:
+        df_res_with_date = pop_estimation.add_date_to_df(df_res)
+    except ValueError:
+        print(
+            "Wrong filename format! The filenames must be split in different part, separated by undescores, with the date in the second position and with the following format: yearmonthday. For example: 'xxxxx_20230619_xxxxxx.wav' means that the following file was recorded in June 13, 2023."
+        )
+    else:
+        n_clusts_per_day = pop_estimation.daily_vocalize_clusters(df_res_with_date)
+        n_clusts_per_day.to_csv(
+            output_dir + "/Number_of_clusters_per_day.csv", index=False
+        )
+        pres = pop_estimation.presence_clusters(df_res_with_date)
+        pres.to_csv(output_dir + "/number_of_sounds_per_cluster_per_date.csv")
+        pi_arr = pop_estimation.presence_index_arr(df_res_with_date)
+        pi_df = pd.DataFrame(
+            pi_arr,
+            columns=[
+                "Cluster",
+                "Days_of_presence",
+                "Number_of_sounds",
+                "Presence_index",
+            ],
+        )
+        sorted_pi_df = pi_df.sort_values(by="Presence_index", ascending=False)
+        sorted_pi_df.to_csv(output_dir + "/presence_index.csv", index=False)
+        # Estimation of resident individuals according to Presence Index
+        n_indiv_resident = np.count_nonzero(pi_arr[:, 3] >= 0.01)
+        # Estimation of the whole population using Population Information Criterion
+        pi_pop = pop_estimation.population_presence_index(pi_arr, pres)
+        n_indiv_tot, df_pic = pop_estimation.estimate_number_of_individuals(pi_pop)
+        df_pic.to_csv(output_dir + "/PPI_PIC.csv", index=False)
+        print("Estimated total number of individuals: " + str(n_indiv_tot))
+        print("Estimated number of resident individuals: " + str(n_indiv_resident))

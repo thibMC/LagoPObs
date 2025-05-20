@@ -8,7 +8,7 @@ from tkinter import filedialog
 from tkinter import font
 import numpy as np
 import pandas as pd
-from tools import utils, filtering, spectro, image_matching
+from tools import utils, filtering, spectro, image_matching, pop_estimation
 
 # Variables
 # List of choices for overlap
@@ -25,6 +25,7 @@ default_lago_vars = [
     "53",
     "ORB custom",
     "Affinity Propagation",
+    "Yes"
 ]
 # Option for wavelet filtering
 wlt_filt_list = ["Yes", "No"]
@@ -40,7 +41,8 @@ algo_clustering_list = [
     "K-Means",
     "Mean Shift",
 ]
-
+# Choice for the estimation of population
+estim_pop_list = ["Yes", "No"]
 
 # Main window
 class LagoPopObsUI(tk.Tk):
@@ -48,7 +50,7 @@ class LagoPopObsUI(tk.Tk):
         tk.Tk.__init__(self)
         # Prepare the grid
         # Rows
-        for i in range(20):
+        for i in range(21):
             self.grid_rowconfigure(i, weight=0)
         # Columns
         self.grid_columnconfigure(0, weight=1, uniform="same_group")
@@ -59,7 +61,7 @@ class LagoPopObsUI(tk.Tk):
         # Window title
         self.title("lagoPObs")
         # Geometry of window
-        self.geometry("1000x950")
+        self.geometry("1000x1000")
         self.resizable(True, False)
         # Variables of analysis
         self.dir_input = tk.StringVar(self, os.getcwd())
@@ -74,6 +76,7 @@ class LagoPopObsUI(tk.Tk):
         self.n_matches = tk.StringVar(self, default_lago_vars[7])
         self.algo_features = tk.StringVar(self, default_lago_vars[8])
         self.algo_clustering = tk.StringVar(self, default_lago_vars[9])
+        self.estim_pop = tk.StringVar(self, default_lago_vars[10])
         # Welcome text
         lab_welcome = ttk.Label(
             self,
@@ -176,11 +179,18 @@ class LagoPopObsUI(tk.Tk):
         combo_algo_clustering["values"] = algo_clustering_list
         combo_algo_clustering["state"] = "readonly"
         combo_algo_clustering.grid(row=18, column=1, **default_grid)
+        # Estimation of population?
+        lab_pop_estim = ttk.Label(text="Population estimation:")
+        lab_pop_estim.grid(row=19, column=0, **default_grid)
+        combo_estim_pop = ttk.Combobox(self, textvariable=self.estim_pop)
+        combo_estim_pop["values"] = estim_pop_list
+        combo_estim_pop["state"] = "readonly"
+        combo_estim_pop.grid(row=19, column=1, **default_grid)
         # Button to validate the parameters and proceed to analysis
         button_proceed = ttk.Button(
             self, text="Validate and proceed to analysis", command=self.validate_proceed
         )
-        button_proceed.grid(row=19, column=0, columnspan=2, **default_separator)
+        button_proceed.grid(row=20, column=0, columnspan=2, **default_separator)
 
     def input_folder(self):
         folder = filedialog.askdirectory(initialdir=self.dir_input.get())
@@ -211,6 +221,8 @@ class LagoPopObsUI(tk.Tk):
     def update_progress(self, new_text="", add_value=20):
         value = self.progress_var.get()
         value += add_value
+        if value > 100:
+            value = 100
         self.progress_var.set(value)
         self.progress_bar["value"] = value
         text = self.text_pop.get()
@@ -269,7 +281,7 @@ class LagoPopObsUI(tk.Tk):
         if not any(["matches" in p for p in list_problems]):
             if float(vars_value[-1]) > 500:
                 list_problems.append(
-                    "- The number of matches to extract is too high (>500) compared to the number of extracted features."
+                    "- The number of matches is too high (>500) compared to the number of extracted features."
                 )
         # if there are any errors or warnings, display them
         if list_problems:
@@ -297,6 +309,7 @@ class LagoPopObsUI(tk.Tk):
                 "Number of matches: ",
                 "Feature extraction algorithm: ",
                 "Clustering algorithm: ",
+                "Estimation of population: "
             ]
             param_values = [
                 self.dir_input.get(),
@@ -311,6 +324,7 @@ class LagoPopObsUI(tk.Tk):
                 str(int(float(self.n_matches.get()))),
                 self.algo_features.get(),
                 self.algo_clustering.get(),
+                self.estim_pop.get()
             ]
             param_valid = [p[0] + p[1] for p in zip(param_list, param_values)]
             param_valid = [
@@ -327,7 +341,7 @@ class LagoPopObsUI(tk.Tk):
                 # Text to display in popup
                 self.text_pop = tk.StringVar(self, "Importing files...")
                 lab_popup = ttk.Label(self.popup, textvariable=self.text_pop)
-                lab_popup.grid(row=1, column=0, rowspan=8, columnspan=2)
+                lab_popup.grid(row=1, column=0, rowspan=11, columnspan=2)
                 # Progress bar
                 self.progress_var = tk.DoubleVar(self.popup, 0)
                 self.progress_bar = ttk.Progressbar(
@@ -345,8 +359,6 @@ class LagoPopObsUI(tk.Tk):
                     list_wavs, param_values[0], int(param_values[4])
                 )
                 # Update window
-                # text_pop += " done!\nFiltering..."
-                # lab_popup.config(text=text_pop)
                 self.update_progress(new_text=" done!\nFiltering...")
                 self.popup.update()
                 # Filter with bandpass
@@ -360,8 +372,6 @@ class LagoPopObsUI(tk.Tk):
                 # Pad signals so that they have the same length
                 arr_filt = utils.pad_signals(list_arr_filt)
                 # Update window
-                # text_pop += " done!\nDrawing spectrograms..."
-                # lab_popup.config(text=text_pop)
                 self.update_progress(new_text=" done!\nDrawing spectrograms...")
                 self.popup.update()
                 # Calculate spectrograms
@@ -374,8 +384,6 @@ class LagoPopObsUI(tk.Tk):
                     for a in arr_filt
                 ]
                 # Update window
-                # text_pop += " done!\nClustering spectrograms..."
-                # lab_popup.config(text=text_pop)
                 self.update_progress(new_text=" done!\nClustering spectrograms...")
                 self.popup.update()
                 # Clustering spectrograms
@@ -384,15 +392,17 @@ class LagoPopObsUI(tk.Tk):
                 )
                 n_clust = len(np.unique(clusters))
                 # Update window
-                # text_pop += f" done, {n_clust} clusters found!\nSaving files..."
-                # lab_popup.config(text=text_pop)
                 self.update_progress(
                     new_text=f" done, {n_clust} clusters found!\nSaving files..."
                 )
                 self.popup.update()
                 # Save the clustering results
-                df_res = pd.DataFrame(
-                    np.column_stack((list_wavs, clusters)), columns=["File", "Cluster"]
+                # It is really important to create the DataFrame with a dict here
+                # otherwise, you will create dobjects and it can impede the cluster order in the following result and thus impede the quality of the results.
+                df_res = pd.DataFrame({
+                    "File": list_wavs,
+                    "Cluster": clusters
+                    }
                 )
                 df_res.to_csv(param_values[1] + "/clustering_results.csv", index=False)
                 # Save the spectrograms with the keypoints in it
@@ -400,16 +410,50 @@ class LagoPopObsUI(tk.Tk):
                     spectros, kp_desc, list_wavs, param_values[1]
                 )
                 # Update window
-                # text_pop += " saved!\nAnalysis finished!"
-                # lab_popup.config(text=text_pop)
                 self.update_progress(new_text=" saved!\nAnalysis finished!")
                 self.popup.update()
+                # If population estimation is asked
+                if param_values[12] == "Yes":
+                    try:
+                        df_res_with_date = pop_estimation.add_date_to_df(df_res)
+                    except ValueError:
+                        showerror(title="Wrong filename format!",
+                                  message="Population estimation not performed as the filenames format is wrong. Filenames must be split in different parts, separated by undescores, with the date in the second position and with the following format: yearmonthday. For example: 'xxxxx_20230619_xxxxxx.wav' means that the following file was recorded in June 13, 2023.")
+                    else:
+                        n_clusts_per_day = pop_estimation.daily_vocalize_clusters(df_res_with_date)
+                        n_clusts_per_day.to_csv(
+                            param_values[1] + "/Number_of_clusters_per_day.csv", index=False
+                        )
+                        pres = pop_estimation.presence_clusters(df_res_with_date)
+                        pres.to_csv(param_values[1] + "/number_of_sounds_per_cluster_per_date.csv")
+                        pi_arr = pop_estimation.presence_index_arr(df_res_with_date)
+                        pi_df = pd.DataFrame(
+                            pi_arr,
+                            columns=[
+                                "Cluster",
+                                "Days_of_presence",
+                                "Number_of_sounds",
+                                "Presence_index",
+                            ],
+                        )
+                        sorted_pi_df = pi_df.sort_values(by="Presence_index", ascending=False)
+                        sorted_pi_df.to_csv(param_values[1] + "/presence_index.csv", index=False)
+                        # Estimation of resident individuals according to Presence Index
+                        n_indiv_resident = np.count_nonzero(pi_arr[:, 3] >= 0.01)
+                        # Estimation of the whole population using Population Information Criterion
+                        pi_pop = pop_estimation.population_presence_index(pi_arr, pres)
+                        n_indiv_tot, df_pic = pop_estimation.estimate_number_of_individuals(pi_pop)
+                        df_pic.to_csv(param_values[1] + "/PPI_PIC.csv", index=False)
+                        # Update window
+                        self.update_progress(new_text=f"Population estimation:\nEstimated total number of individuals: {n_indiv_tot}\nEstimated number of resident individuals: {n_indiv_resident}")
+                        self.popup.update()
+                # Button to close the popup
                 button_finish = ttk.Button(
                     self.popup,
                     text="Go back to main window",
                     command=self.popup.destroy,
                 )
-                button_finish.grid(row=9, column=0, columnspan=2)
+                button_finish.grid(row=12, column=0, columnspan=2)
 
 
 if __name__ == "__main__":
