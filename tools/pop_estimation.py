@@ -6,7 +6,7 @@ import pandas as pd
 
 def estimate_number_of_individuals(pi_pop):
     """
-    Some individual may be split into several clusters because their sounds are modified through time or that some individuals are only present really briefly or even because of noises. As such, the total number of clusters found during the analysis might be an overestimation of the population.
+    Some individuals may be split into several clusters because their sounds are modified through time or that some individuals are only present really briefly or even because of noises. As such, the total number of clusters found during the analysis might be an overestimation of the population.
 
     This function tries to estimate the number of individuals in the recorded population based on an information criterion inspired by the AIC (Akaike Information Criterion, [1]) and a generalization  of the Presence Index (see population_presence_index) to a population.
 

@@ -25,7 +25,7 @@ default_lago_vars = [
     "53",
     "ORB custom",
     "Affinity Propagation",
-    "Yes"
+    "Yes",
 ]
 # Option for wavelet filtering
 wlt_filt_list = ["Yes", "No"]
@@ -43,6 +43,7 @@ algo_clustering_list = [
 ]
 # Choice for the estimation of population
 estim_pop_list = ["Yes", "No"]
+
 
 # Main window
 class LagoPopObsUI(tk.Tk):
@@ -309,7 +310,7 @@ class LagoPopObsUI(tk.Tk):
                 "Number of matches: ",
                 "Feature extraction algorithm: ",
                 "Clustering algorithm: ",
-                "Estimation of population: "
+                "Estimation of population: ",
             ]
             param_values = [
                 self.dir_input.get(),
@@ -324,7 +325,7 @@ class LagoPopObsUI(tk.Tk):
                 str(int(float(self.n_matches.get()))),
                 self.algo_features.get(),
                 self.algo_clustering.get(),
-                self.estim_pop.get()
+                self.estim_pop.get(),
             ]
             param_valid = [p[0] + p[1] for p in zip(param_list, param_values)]
             param_valid = [
@@ -399,11 +400,7 @@ class LagoPopObsUI(tk.Tk):
                 # Save the clustering results
                 # It is really important to create the DataFrame with a dict here
                 # otherwise, you will create dobjects and it can impede the cluster order in the following result and thus impede the quality of the results.
-                df_res = pd.DataFrame({
-                    "File": list_wavs,
-                    "Cluster": clusters
-                    }
-                )
+                df_res = pd.DataFrame({"File": list_wavs, "Cluster": clusters})
                 df_res.to_csv(param_values[1] + "/clustering_results.csv", index=False)
                 # Save the spectrograms with the keypoints in it
                 image_matching.save_spectros_keypoints(
@@ -414,18 +411,28 @@ class LagoPopObsUI(tk.Tk):
                 self.popup.update()
                 # If population estimation is asked
                 if param_values[12] == "Yes":
+                    self.update_progress(new_text="Population estimation...")
+                    self.popup.update()
                     try:
                         df_res_with_date = pop_estimation.add_date_to_df(df_res)
                     except ValueError:
-                        showerror(title="Wrong filename format!",
-                                  message="Population estimation not performed as the filenames format is wrong. Filenames must be split in different parts, separated by undescores, with the date in the second position and with the following format: yearmonthday. For example: 'xxxxx_20230619_xxxxxx.wav' means that the following file was recorded in June 13, 2023.")
+                        showerror(
+                            title="Wrong filename format!",
+                            message="Population estimation not performed as the filenames format is wrong. Filenames must be split in different parts, separated by undescores, with the date in the second position and with the following format: yearmonthday. For example: 'xxxxx_20230619_xxxxxx.wav' means that the following file was recorded in June 13, 2023.",
+                        )
                     else:
-                        n_clusts_per_day = pop_estimation.daily_vocalize_clusters(df_res_with_date)
+                        n_clusts_per_day = pop_estimation.daily_vocalize_clusters(
+                            df_res_with_date
+                        )
                         n_clusts_per_day.to_csv(
-                            param_values[1] + "/Number_of_clusters_per_day.csv", index=False
+                            param_values[1] + "/number_of_clusters_per_day.csv",
+                            index=False,
                         )
                         pres = pop_estimation.presence_clusters(df_res_with_date)
-                        pres.to_csv(param_values[1] + "/number_of_sounds_per_cluster_per_date.csv")
+                        pres.to_csv(
+                            param_values[1]
+                            + "/number_of_sounds_per_cluster_per_date.csv"
+                        )
                         pi_arr = pop_estimation.presence_index_arr(df_res_with_date)
                         pi_df = pd.DataFrame(
                             pi_arr,
@@ -436,17 +443,26 @@ class LagoPopObsUI(tk.Tk):
                                 "Presence_index",
                             ],
                         )
-                        sorted_pi_df = pi_df.sort_values(by="Presence_index", ascending=False)
-                        sorted_pi_df.to_csv(param_values[1] + "/presence_index.csv", index=False)
+                        sorted_pi_df = pi_df.sort_values(
+                            by="Presence_index", ascending=False
+                        )
+                        sorted_pi_df.to_csv(
+                            param_values[1] + "/presence_index.csv", index=False
+                        )
                         # Estimation of resident individuals according to Presence Index
                         n_indiv_resident = np.count_nonzero(pi_arr[:, 3] >= 0.01)
                         # Estimation of the whole population using Population Information Criterion
                         pi_pop = pop_estimation.population_presence_index(pi_arr, pres)
-                        n_indiv_tot, df_pic = pop_estimation.estimate_number_of_individuals(pi_pop)
+                        n_indiv_tot, df_pic = (
+                            pop_estimation.estimate_number_of_individuals(pi_pop)
+                        )
                         df_pic.to_csv(param_values[1] + "/PPI_PIC.csv", index=False)
                         # Update window
-                        self.update_progress(new_text=f"Population estimation:\nEstimated total number of individuals: {n_indiv_tot}\nEstimated number of resident individuals: {n_indiv_resident}")
+                        self.update_progress(
+                            new_text=f"done!\nEstimated total number of individuals: {n_indiv_tot}\nEstimated number of resident individuals: {n_indiv_resident}"
+                        )
                         self.popup.update()
+
                 # Button to close the popup
                 button_finish = ttk.Button(
                     self.popup,

@@ -6,9 +6,14 @@ Over and above the legal restrictions imposed by this license, if you use this s
 
 T. Marin-Cudraz, Y. Bayle, S. Elise, B. Drillat. LagoPObs: Lagopède Population Observator, a software to separate male ptarmigans indivuals from their sounds (2025). github.com/XXXXX.
 
+
+$$PI_k = \frac{N_{sons}(k)}{N_{sons}(total)} \times \frac{N_{jours}(k)}{N_{jours}(total)}  \qquad(1)$$
+
+
+
 # Installation
 
-The software is available as executables (generated using pyinstaller) for Windows and Linux that requires no dependencies. macOS can still execute the python code (see below) but will need the installation of the dependencies.
+The software is available as executables (generated using *pyinstaller*) for Windows and Linux that requires no dependencies. macOS can still execute the python code (see below) but will need the installation of the dependencies.
 
 If you want to execute the python code, you would need to install these libraries:
 
@@ -51,9 +56,9 @@ python LagPObs.py
 If you just want to study and use the underlining code of the analysis without the GUI, e.g. to use it in a pipeline or to test for different configuration at the same time, open and use the *demo_script.py* file.
 
 
-# Description of the interface
+# Interface description
 
-The GUI is simple and straightforward with a few buttons and fields:
+The GUI is simple with only a few buttons and fields:
 
 ![Graphical interface of LagoPObs](Readme/GUI_LagoPObs.png)
 
@@ -65,9 +70,8 @@ The *Wavelet filtering* option allow to activate/desactivate the option for the 
 
 The lowest and highest frequency set the frequency bandwidth of the bandpass filtering (an order 10 butterworth filter). The *Highest frequency* parameter is really important as it will also conditioned the new sampling rate at which the sounds will be resampled using the formula:
 
-```
-new sampling rate = 2*(Highest frequency + 100)
-```
+$$new sampling rate = 2 \times (Highest frequency + 100)$$
+
 
 100 is added to avoid frequency aliasing at some frequencies of interest. The choice of the *Highest frequency* is thus critical. It also implies that the temporal resolution of your spectrograms will be modified so be sure to check that the window lengths are still appropriate when modifying this parameter.
 
@@ -77,12 +81,19 @@ The *Feature extraction algorithm* parameter configures the feature extraction a
 
 
 
+
+
 # References
+
+[1] Rublee, E., Rabaud, V., Konolige, K., & Bradski, G. (2011, November). ORB: An efficient alternative to SIFT or SURF. In 2011 International conference on computer vision (pp. 2564-2571). Ieee.
+
+[2] https://docs.opencv.org/4.x/d1/d89/tutorial_py_orb.html
 
 [1] Lee, G., Gommers, R., Waselewski, F., Wohlfahrt, K., & O'Leary, A. (2019). PyWavelets: A Python package for wavelet analysis. Journal of Open Source Software, 4(36), 1237.
 
 [2] https://en.wikipedia.org/wiki/Stationary_wavelet_transform
 
+[3] Rublee, E., Rabaud, V., Konolige, K., & Bradski, G. (2011, November). ORB: An efficient alternative to SIFT or SURF. In 2011 International conference on computer vision (pp. 2564-2571). Ieee.
 
 [3] https://docs.opencv.org/4.x/d1/d89/tutorial_py_orb.html
 
