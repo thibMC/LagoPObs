@@ -46,7 +46,7 @@ df_cl["Start_recording_time"] = df_cl.File.apply(get_time_from_filename)
 
 # Get the number of different clusters per date
 def daily_vocalize_clusters(df):
-    date_uniq = np.unique(df_cc.Date)
+    date_uniq = np.unique(df.Date)
     nb_clust = []
     nb_voc = []
     for d in date_uniq:
@@ -99,7 +99,7 @@ plt.plot(
 )
 # Add the count dates in cl plot
 for c_d in count_days:
-    plt.plot(c_d, daily_cl[daily_cc[:, 0] == c_d, 1], "or", markersize=7)
+    plt.plot(c_d, daily_cl[daily_cl[:, 0] == c_d, 1], "or", markersize=7)
 plt.xticks(daily_cc[:, 0], daily_cc[:, 0], rotation="vertical")
 plt.yticks(np.arange(13))
 plt.xlabel("Date")
@@ -302,7 +302,7 @@ pic_cc = np.array(
 
 pic_cl = np.array(
     [
-        2 * (k + 1) / len(pi_population_cc) - 2 * np.log(1 + pi_population_cl[k])
+        2 * (k + 1) / len(pi_population_cl) - 2 * np.log(1 + pi_population_cl[k])
         for k in range(len(pi_population_cl))
     ]
 )

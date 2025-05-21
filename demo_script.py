@@ -1,12 +1,16 @@
 ### Demo script
 # Import
-from LagoPObs.tools import utils, filtering, spectro, image_matching, pop_estimation
 import numpy as np
 import pandas as pd
 
+try:
+    from tools import utils, filtering, spectro, image_matching, pop_estimation
+except:
+    from LagoPObs.tools import utils, filtering, spectro, image_matching, pop_estimation
+
 # Variables: same as the default in the GUI
-input_dir = "/home/tmc/Documents/LPO_Prestation/Enregistrements/Enregistrements_Modif/2023_Thibaut/CC/"  # directory with sounds
-output_dir = "/home/tmc/Documents/LPO_Prestation/Resultats/Clustering/CC/"  # directory where the results will be saved
+input_dir = ""  # directory with sounds
+output_dir = ""  # directory where the results will be saved
 wlt_filt = "Yes"  # Wavelet filtering?
 f_filt = [950, 2800]  # frequency bandwidth
 wlen = 281  # Window length
@@ -83,7 +87,7 @@ if estim_pop == "Yes":
         sorted_pi_df = pi_df.sort_values(by="Presence_index", ascending=False)
         sorted_pi_df.to_csv(output_dir + "/presence_index.csv", index=False)
         # Estimation of resident individuals according to Presence Index
-        n_indiv_resident = np.count_nonzero(pi_arr[:, 3] >= 0.01)
+        n_indiv_resident = np.count_nonzero(pi_df.Presence_index >= 0.01)
         # Estimation of the whole population using Population Information Criterion
         pi_pop = pop_estimation.population_presence_index(pi_arr, pres)
         n_indiv_tot, df_pic = pop_estimation.estimate_number_of_individuals(pi_pop)
