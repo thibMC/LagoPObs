@@ -411,7 +411,7 @@ class LagoPopObsUI(tk.Tk):
                 self.popup.update()
                 # If population estimation is asked
                 if param_values[12] == "Yes":
-                    self.update_progress(new_text="Population estimation...")
+                    self.update_progress(new_text="\nPopulation estimation...")
                     self.popup.update()
                     try:
                         df_res_with_date = pop_estimation.add_date_to_df(df_res)
