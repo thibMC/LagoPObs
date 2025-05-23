@@ -45,7 +45,7 @@ Based on the recording date and cluster assignment of each file, the software ca
 
 $$PI_k = \frac{N_{sounds}(k)}{N_{sounds}(total)} \times \frac{N_{days}(k)}{N_{days}(total)}  \qquad(1)$$
 
-With $N_{sounds}(k)$, the number of sounds assigned to the cluster $k$ ; $N_{sounds}(total)$, the total number of sounds in the dataset; $N_{days}(k)$, the number of days on which $k$ is present, $N_{total}(k)$, the total number of days, i.e. the duration of the study in days.
+With $N_{sounds}(k)$, the number of sounds assigned to the cluster $k$ ; $N_{sounds}(total)$, the total number of sounds in the dataset; $N_{days}(k)$, the number of days on which $k$ is present, $N_{days}(total)$, the total number of days, i.e. the duration of the study in days.
 
 A presence index of 0.01 was used in [4] to estimate the number of male ptarmigan regularly present in the study area. This threshold has been retained here (not modifiable using the interface, but it is possible to modify in the code, see *demo_script.py*). Using this threshold allows us to estimate the number of clusters regularly present in the study.
 
@@ -59,17 +59,17 @@ $PPI_n$ is the PPI for a population of $n$ clusters; $\sum_{k}^{n} N_{sounds}(k)
 
 The PPI can be seen as an approximation of the probability that the $n$ clusters in the population represent the data, and is therefore an estimate of the real number of individuals: the more clusters are added to the population, the closer the PPI is to 1. This PPI must therefore be balanced against the risk of overestimating the number of individuals present in the real population. The AIC (3), or Akaike Information Criterion [7-8], measures the quality of a statistical model by balancing the explanatory power of the model, the natural logarithm of its likelihood $\log(L)$ and $n$, the number of parameters in a statistical model:
 
-$$AIC = 2 \times n - 2 \times \ln(L) \qquad (3)$$
+$$AIC = 2 \times n - 2 \times \log(L) \qquad (3)$$
 
 Based on this equation, we define the Population Information Criterion (4) or PIC for an estimated population of $n$ clusters as a function of $N$, the total number of clusters found by clustering and $PPI_n$, the PPI of an estimated population of $n$ clusters :
 
 $$PIC_n = 2 \times \frac{n}{N} - 2 \times \log(1+ PPI_n) \qquad (4)$$
 
-1 is added to the PPI to make the logarithm positive, and $n$ divided by to give a ratio ranging from 0 to 1, just like the PPI. Thus, PPI and PIC will have roughly the same influence on the PIC value. The PIC therefore balances the number of clusters in the population with the probability that these $n$ clusters are representative of the real population. The ideal number of clusters is therefore estimated by minimizing the PIC: the $n$ with the smallest PIC represents the estimate of the total number of individuals in the population.
+1 is added to the PPI to make the logarithm positive, and $n$ divided by $N$ to give a ratio ranging from 0 to 1, just like the PPI. Thus, PPI and PIC will have roughly the same influence on the PIC value. The PIC therefore balances the number of clusters in the population with the probability that these $n$ clusters are representative of the real population. The ideal number of clusters is therefore estimated by minimizing the PIC: the $n$ with the smallest PIC represents the estimate of the total number of individuals in the population.
 
 The PIC and PPI values are stored and saved in the CSV file *PPI_PIC.csv*.
 
-The software therefore gives two estimates: the number of resident individuals based on the Presence Index, and the total population based on the Population Information Criterion. These estimates are based on relatively simple calculations, but are sufficient for the purpose needed here. The results saved by the software can be used to perform further, more complex analyses of population dynamics (capture-marking-acoustic recapture, ...) if necessary.
+The software therefore gives two estimates: the number of resident individuals based on the Presence Index, and the total population based on the Population Information Criterion. These estimates are based on relatively simple calculations, but are sufficient for the purpose needed here. The results saved by the software can be used to perform further, more complex analyzes of population dynamics (capture-marking-acoustic recapture, ...) if necessary.
 
 
 # Installation
@@ -101,13 +101,12 @@ You can also download the repo as a ZIP file using the *Code* button and clickin
 |Figure 4: Download the GitHub repo in ZIP format.|
 
 
-
-
-# Running the software
+# Starting the software
 
 ## Using executables
 
 No need to install the libraries if you are using the executables.
+
 - For Windows users: clone/download this repo, unzip and go to the folder and double-click on *LagoPObs_windows.exe*. The software may take a few seconds to open.
 
 - For Linux users: clone/download, unzip this repo and go to the folder. Double-click on *LagoPObs_linux*. If the application does not start, then make it executable using the terminal:
@@ -119,7 +118,7 @@ No need to install the libraries if you are using the executables.
     .\LagoPobs_linux
     ```
 
-## Executing the python code
+## Running the python code
 
 The code was tested for Python 3.9, 3.11, 3.12 and 3.13. There should be no problems with 3.10. The only strict requirement is to have a version of scikit-learn that is 1.3 or higher (inclusion of HDBSCAN).
 Install the required libraries with *pip* or *conda*.
@@ -129,35 +128,104 @@ If you want to use the GUI (Graphical User Interface), open a terminal and type:
 python LagPObs.py
 ```
 
-If you just want to study and use the underlining code of the analysis without the GUI, e.g. to use it in a pipeline or to test for different configuration at the same time, open and use the *demo_script.py* file.
+If you just want to study and use the underlining code of the analysis without the GUI, e.g. to use it in a pipeline or to test for different configurations at the same time, open and use the *demo_script.py* file.
 
 
-# Interface description
+# Using the software
 
-The GUI is simple with only a few buttons and fields:
+The GUI was made using tkinter [10] and is simple with only a few buttons and fields (Fig.5). The software is automatically setup to estimate populations of rock ptarmigans.
 
-![Graphical interface of LagoPObs](Readme/GUI_LagoPObs.png)
+|![GUI_LagoPObs.png](Readme/GUI_LagoPObs.png)|
+|:--:|
+|Figure 5: The user interface.|
 
-To change the folders where the sounds are located, press *Select input folder*, to change the directory where the results will be saved, press *Select output folder*. By default, the location of the program is used. The input folder can have other type of files than WAV inside, it will automatically filter out non-WAV files. It accepts multiple sample rate and bitrate as the sounds will be automatically converted to 64 bits arrays and will be resampled.
+## Best practices
+
+Before describing the interface in detail, here's a summary of the best practices and the ideal order of operations:
+
+1) Select the folder with the WAV files.
+
+2) Select the folder where the results will be stored.
+
+3) If you don't want to estimate a population or a number of groups, deactivate *Population estimation*.
+
+4) If there is noise in the sounds studied, try to improve sound quality by activating wavelet filtering via *Wavelet filtering*. Check that denoising does not alter the signals of interest.
+
+5) Set the appropriate frequency band for the signals with *Lowest frequency* and *Highest frequency*. Ideally, the setup should contain only the signal of interest.
+
+6) Set the STFT parameters, and try out the software a few times to see if the settings seems right for you. Window sizes can be fine-tuned precisely. For some species, a change of a few units can drastically increase the quality of the results.
+
+7) Test different feature extraction algorithms to see how well keypoints are recognized. Don't hesitate to run the software a few times and check visually.
+
+8) Test the different types of clustering with a subset of the data where group membership is known and/or easily verifiable (e.g. you want to separate two different types of signal), to check the quality of the clustering results. Some algorithms tend to subdivide sounds into smaller clusters, while others will be more conservative and minimize the number of clusters.
+
+9) In parallel with 8, set the number of matches required to calculate distances. Increasing the number of matches used to calculate distances between images enables the software to separate signals according to finer differences, but increases the risk of overestimating the number of clusters and increases the influence of noise (if still present after filtration) on the results. The ideal compromise must therefore be found for each use of the software. The number of matches should not exceed 500.
+
+## Description of the interface
+
+To change the folders where the sounds are located, press *Select input folder*, to change the directory where the results will be saved, press *Select output folder*. By default, the location of the program is used. The input folder can have other type of files than WAV inside, it will automatically filter out non-WAV files. It accepts multiple sample rates and bitrates as the sounds will be automatically converted to 64 bits arrays and will be resampled.
 
 Below, you have access to the different analysis parameters. By default, all parameters are set so that the software can discriminate between rock ptarmigan males.
 
-The *Wavelet filtering* option allow to activate/desactivate the option for the software to perform a wavelet denoising scheme based on the stationary wavelet transform (i.e. the "algorithme à trous", see PyWavelets [1] and [2]) using a biorthogonal wavelet. The wavelet cannot be modified at the moment without going into the code, but it should work for a wide range of signals. The sound is first resampled (see below) and bandpass filtered between the lowest and highest filtering, then it is decomposed using the stationary wavelet transform in several levels. For each level, Fisher's kurtosis is calculated and the level is set to 0s if the kurtosis is negative. Then, a soft thresholding is applied using the standard deviation of each particular level as the threshold. The signal is then reconstructed using the modified levels.
+The *Wavelet filtering* option allow to activate/desactivate the option for the software to perform a wavelet denoising scheme based on the stationary wavelet transform (i.e. the "algorithme à trous", see PyWavelets [11] and [12]) using a biorthogonal wavelet. The wavelet cannot be modified at the moment without going into the code, but it should work for a wide range of signals. The sound is first resampled (see below) and bandpass filtered between the *Lowest frequency* and the *Highest frequency*, then it is decomposed using a multilevel stationary wavelet transform in several levels. For each level, Fisher's kurtosis is calculated and the level is set to 0s if the kurtosis is negative. Then, a soft thresholding is applied using the standard deviation of each particular level as the threshold. The signal is then reconstructed using the modified levels. The bandpass filter is applied even if *Wavelet filtering* is deactivated.
 
-The lowest and highest frequency set the frequency bandwidth of the bandpass filtering (an order 10 butterworth filter). The *Highest frequency* parameter is really important as it will also conditioned the new sampling rate at which the sounds will be resampled using the formula:
+The *Lowest frequency* and *Highest frequency* set the frequency bandwidth of the bandpass filtering (an order 10 butterworth filter). The *Highest frequency* parameter is really important as it will also condition the new sampling rate $FS$ at which the sounds will be resampled using the formula (5):
 
-$$new sampling rate = 2 \times (Highest frequency + 100)$$
-
+$$FS = 2 \times (Highest frequency + 100) \qquad(5)$$
 
 100 is added to avoid frequency aliasing at some frequencies of interest. The choice of the *Highest frequency* is thus critical. It also implies that the temporal resolution of your spectrograms will be modified so be sure to check that the window lengths are still appropriate when modifying this parameter.
 
-The characteristics of the spectrograms of the filtered signal and its envelope can be configured using the next 4 parameters: *Window length* and *Overlap* of STFT (Short-Time Fourier Transform) of sound for the spectrogram of the filtered signal and *Window length* and *Overlap* of the STFT for the spectrogram of the envelope. A hamming window is used for both spectrograms and cannot be modified using the interface.
+The characteristics of the spectrograms of the filtered signal and its envelope can be configured using the next 4 parameters: *Window length* and *Overlap of STFT of sound* for the STFT performed on the filtered signal and *Window length* and *Overlap* of the STFT for the spectrogram of the envelope. A hamming window is used for both spectrograms and cannot be modified using the interface.
 
-The *Feature extraction algorithm* parameter configures the feature extraction and matching. The goal of those algorithms is to detect critical keypoints in the image that best describe the features of the image. Each keypoint comes with a descriptor, that represents the local characteristics of the image around the keypoint. You can choose a list of classical algorithms taken from OpenCV: ORB [3], Custom ORB is ORB but with parameters tuned specifically for spectrograms of Rock ptarmigan, SIFT [4-5], AKAZE [6], KAZE [7]. ORB or Custom ORB should work fine for most applications and are also the fastest. After the extraction of the keypoints and descriptors
+The *Feature extraction algorithm* parameter is used to select the algorithm responsible for extracting keypoints, and descriptors. The aim of these algorithms is to detect the critical keypoints in the image that best describe its characteristics. Each keypoint is accompanied by a descriptor that represents the local features of the image around the keypoint (Fig.1,2).
 
+A list of classic algorithms from OpenCV [13] is proposed: ORB [1-2], Custom ORB is an ORB but with parameters set specifically for rock ptarmigan spectrograms, SIFT [14-15], AKAZE [16-17], KAZE [16-17]. ORB or Custom ORB should be suitable for most applications, and are also the fastest. After extracting key points and descriptors, a Brute force matcher [5] will match the descriptors of each image pair (Fig.3). FLANN-based matcher were tested but not included here as the results were equal or even worst than with the brute force. A distance for each match is calculated, then the matches are ranked by increasing distance. The algorithm keeps a number of matches equal to the *Number of matches* parameter and corresponding to the smallest distances. The average distance of these matches is calculated and corresponds to the distance between the two images. The distance is calculated for each pair of images and used to construct the inter-image distance matrix.
 
+The *Clustering algorithm* parameter controls the type of algorithm used for clustering. The choice will be made from a list of classic algorithms proposed by scikit-learn [20-21]: Affinity propagation [22], agglomerative hierarchical clustering [23], Bisecting K-Means [24], Gaussian mixture model [25], HDBSCAN [26], K-Means [27], Mean Shift [28]. Scikit-learn provides a very good description of each algorithm, so no further details will be given here, and readers wishing to find out more can consult the link in [29]. Some algorithms tend to subdivide sounds into small clusters, while others are more conservative and minimize the number of clusters.
 
+Finally, you can activate/deactivate the estimation of the population using *Population estimation*. See the technical descirption of the software for further informations.
 
+Once the setup is made to your liking, click on *Validate and proceed to analysis*.
+
+The software will perform a checkup for errors in the parameters and display an error message with errors are encountered. Figure 6 is an example of a configuration with problems, and will give the error message shown on the left of Figure 7. After closing the warning, the user is sent back to the main window to correct the problems. If the only errors encountered are decimal values when integer values are expected, then a simple warning is returned and the analysis continues once the warning window is closed (right part of Fig.7).
+
+|![example_bad_configuration.png](Readme/example_bad_configuration.png)|
+|:--:|
+|Figure 6: Example of incorrect software settings: there is no WAV file in the input folder, Lowest frequency is not an integer, Highest frequency and Windows length of STFT is not a number.|
+
+|![error_message_GUI.png](Readme/error_message_GUI.png)![warning_message_GUI.png](Readme/warning_message_GUI.png)|
+|:--:|
+|Figure 7: On the left, error message caused by the configuration in Figure 6. Right, warning given when there are only decimal problems.|
+
+Once this verification step has been completed, the software will redisplay the configuration with the various parameters, requesting validation from the user (Figure 8).
+
+|![configuration_validation.png](Readme/configuration_validation.png)|
+|:--:|
+|Figure 8: Software configuration validation window. The language of the buttons will be automatically setup on the language of the operating system (in this case, French).|
+
+Once the configuration has been validated, another window opens, showing the progress of the analysis, with a bar that gradually fills up as the analysis progresses (Fig.9). If the user did not request to estimate a population, the window stops at "Analysis finished!" If the user asked to estimate a population, then the window will display estimates of resident individuals and the total number of individuals (see the software description for more information). A button allow to close the window and return to the main software window. If the user activates population estimation but the file names do not correspond to the expected format (see the technical description for more information), an error window will be displayed (Fig.10). The analysis then stops and the results are saved as if the user did not activate the population estimation.
+
+|![state_of_analysis.png](Readme/state_of_analysis.png)|
+|:--:|
+|Figure 9: Analysis progress window, displaying the progress of the various stages. Here, the population estimation was activated.|
+
+|![error_population_estimation.png](Readme/error_population_estimation.png)|
+|:--:|
+|Figure 10: Error window generated when file name format does not match software expectations.|
+
+## Generated files
+
+Once the analysis is complete, the files are saved in the folder indicated by the *Output folder*. Inside, images are generated for each sound, with the keypoints on them as shown in Figures 1 and 2. The name of each image is the name of the corresponding sound. A CSV file is also saved (*clustering_results.csv*) and contains a table with the first column containing the file names and the second with the cluster to which the sound belongs, with cluster numbers starting at 0.
+
+If the user has activated population estimation, 4 supplementary CSV files are generated:
+
+- *number_of_clusters_per_day.csv* contains the number of sounds and clusters per day.
+
+- *number_of_sounds_per_cluster_per_date.csv* contains the daily number of sounds per cluster for each day.
+
+- *presence_index.csv* contains the number of days of presence, sounds and presence index for each cluster. Clusters are sorted by decreasing presence index.
+
+- *PPI_PIC.csv* contains the population presence index (PPI) and the population information criterion (PIC) as a function of the number of clusters in the estimated population.
 
 # References
 
@@ -165,18 +233,56 @@ The *Feature extraction algorithm* parameter configures the feature extraction a
 
 [2] https://docs.opencv.org/4.x/d1/d89/tutorial_py_orb.html
 
-[1] Lee, G., Gommers, R., Waselewski, F., Wohlfahrt, K., & O'Leary, A. (2019). PyWavelets: A Python package for wavelet analysis. Journal of Open Source Software, 4(36), 1237.
+[3] Marin-Cudraz, T. (2019). Potentialité de la bioacoustique comme outil de dénombrement d'espèces difficiles d'accès: cas du Lagopède alpin (Lagopus muta) (Doctoral dissertation, Université de Lyon).
 
-[2] https://en.wikipedia.org/wiki/Stationary_wavelet_transform
+[4] Marin-Cudraz, T., Muffat-Joly, B., Novoa, C., Aubry, P., Desmet, J. F., Mahamoud-Issa, M., ... & Sèbe, F. (2019). Acoustic monitoring of rock ptarmigan: a multi-year comparison with point-count protocol. Ecological Indicators, 101, 710-719.
 
-[3] Rublee, E., Rabaud, V., Konolige, K., & Bradski, G. (2011, November). ORB: An efficient alternative to SIFT or SURF. In 2011 International conference on computer vision (pp. 2564-2571). Ieee.
+[5] Jakubović, A., & Velagić, J. (2018, September). Image feature matching and object detection using brute-force matchers. In 2018 International Symposium ELMAR (pp. 83-86). IEEE.
 
-[3] https://docs.opencv.org/4.x/d1/d89/tutorial_py_orb.html
+[6] https://docs.opencv.org/4.x/dc/dc3/tutorial_py_matcher.html
 
-[4] Lowe, D. G. (2004). Distinctive image features from scale-invariant keypoints. International journal of computer vision, 60, 91-110.
+[7] Akaike, H. (1998). Information theory and an extension of the maximum likelihood principle. In Selected papers of hirotugu akaike (pp. 199-213). New York, NY: Springer New York.
 
-[5] https://docs.opencv.org/4.x/da/df5/tutorial_py_sift_intro.html
+[8] https://en.wikipedia.org/wiki/Akaike_information_criterion
 
-[6] https://docs.opencv.org/3.4/db/d70/tutorial_akaze_matching.html
+[9] https://pyinstaller.org/en/stable/
 
-[7] https://docs.opencv.org/4.x/d3/d61/classcv_1_1KAZE.html
+[10] Lundh, F. (1999). An introduction to tkinter. URL: www. pythonware. com/library/tkinter/introduction/index. htm, 539, 540.
+
+[11] Lee, G., Gommers, R., Waselewski, F., Wohlfahrt, K., & O'Leary, A. (2019). PyWavelets: A Python package for wavelet analysis. Journal of Open Source Software, 4(36), 1237.
+
+[12] https://en.wikipedia.org/wiki/Stationary_wavelet_transform
+
+[13] Bradski, G., & Kaehler, A. (2000). OpenCV. Dr. Dobb’s journal of software tools, 3(2).
+
+[14] Lowe, D. G. (2004). Distinctive image features from scale-invariant keypoints. International journal of computer vision, 60, 91-110.
+
+[15] https://docs.opencv.org/4.x/da/df5/tutorial_py_sift_intro.html
+
+[16] Alcantarilla, P. F., & Solutions, T. (2011). Fast explicit diffusion for accelerated features in nonlinear scale spaces. IEEE Trans. Patt. Anal. Mach. Intell, 34(7), 1281-1298.
+
+[17] https://docs.opencv.org/3.4/db/d70/tutorial_akaze_matching.html
+
+[18] Alcantarilla, P. F., Bartoli, A., & Davison, A. J. (2012). KAZE features. In Computer Vision–ECCV 2012: 12th European Conference on Computer Vision, Florence, Italy, October 7-13, 2012, Proceedings, Part VI 12 (pp. 214-227). Springer Berlin Heidelberg.
+
+[19] https://docs.opencv.org/4.x/d3/d61/classcv_1_1KAZE.html
+
+[20] Kramer, O., & Kramer, O. (2016). Scikit-learn. Machine learning for evolution strategies, 45-53.
+
+[21] https://scikit-learn.org/stable/
+
+[22] McInnes, L., & Healy, J. (2017, November). Accelerated hierarchical density based clustering. In 2017 IEEE international conference on data mining workshops (ICDMW) (pp. 33-42). IEEE.
+
+[23] https://en.wikipedia.org/wiki/Hierarchical_clustering
+
+[24] Di, J., & Gou, X. (2018). Bisecting K-means Algorithm Based on K-valued Selfdetermining and Clustering Center Optimization. J. Comput., 13(6), 588-595.
+
+[25] Bouman, C. A., Shapiro, M., Cook, G. W., Atkins, C. B., & Cheng, H. (1997, April). Cluster: An unsupervised algorithm for modeling Gaussian mixtures.
+
+[26] L. McInnes and J. Healy, (2017). Accelerated Hierarchical Density Based Clustering. In: IEEE International Conference on Data Mining Workshops (ICDMW), 2017, pp. 33-42. Accelerated Hierarchical Density Based Clustering
+
+[27] Ahmed, M., Seraj, R., & Islam, S. M. S. (2020). The k-means algorithm: A comprehensive survey and performance evaluation. Electronics, 9(8), 1295.
+
+[28] Comaniciu, D., & Meer, P. (2002). Mean shift: A robust approach toward feature space analysis. IEEE Transactions on pattern analysis and machine intelligence, 24(5), 603-619.
+
+[29] https://scikit-learn.org/stable/modules/clustering.html
