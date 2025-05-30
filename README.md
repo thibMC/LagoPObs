@@ -45,7 +45,7 @@ Based on the recording date and cluster assignment of each file, the software ca
 
 $$PI_k = \frac{N_{sounds}(k)}{N_{sounds}(total)} \times \frac{N_{days}(k)}{N_{days}(total)}  \qquad(1)$$
 
-With $N_{sounds}(k)$, the number of sounds assigned to the cluster $k$ ; $N_{sounds}(total)$, the total number of sounds in the dataset; $N_{days}(k)$, the number of days on which $k$ is present, $N_{days}(total)$, the total number of days, i.e. the duration of the study in days.
+With $N_{sounds}(k)$, the number of sounds assigned to the cluster $k$ ; $N_{sounds}(total)$, the total number of sounds in the dataset; $N_{days}(k)$, the number of days on which $k$ is present, $N_{days}(total)$, the total number of days with at least one sound, i.e. the duration of the study with acoustic activity in days.
 
 A presence index of 0.01 was used in [4] to estimate the number of male ptarmigan regularly present in the study area. This threshold has been retained here. For the moment it is not changeable using the interface, but it is possible to modify it in the code, see *demo_script.py*). Using this threshold allows to estimate the number of clusters regularly present in the study.
 
@@ -55,7 +55,7 @@ We can generalize the cluster population presence index to the PPI (Presence Pop
 
 $$PPI_n = \frac{\sum_{k}^{n} N_{sounds}(k)}{N_{sounds}(total)} \times \frac{\bigcup_{k}^{n}N_{days}(k)}{N_{days}(total)}  \qquad(2)$$
 
-$PPI_n$ is the PPI for a population of $n$ clusters; $\sum_{k}^{n} N_{sounds}(k)$, the sum of the number of sounds from the $n$ clusters in the population; $N_{sounds}(total)$, the total number of sounds in the dataset; $\bigcup_{k}^{n}N_{days}(k)$, the number of days on which at least one of the clusters in the population is present; $N_{days}(total)$, the number of days in total, i.e. the duration of the study in days. The PPI is calculated for populations ranging from 1 to the total number of clusters found.  Clusters are gradually included in populations according to their presence in the dataset, in descending order of PI: the population containing $n$ individuals will contain the $n$ individuals with the highest PI.
+$PPI_n$ is the PPI for a population of $n$ clusters; $\sum_{k}^{n} N_{sounds}(k)$, the sum of the number of sounds from the $n$ clusters in the population; $N_{sounds}(total)$, the total number of sounds in the dataset; $\bigcup_{k}^{n}N_{days}(k)$, the number of days on which at least one of the clusters in the population is present; $N_{days}(total)$, the total number of days with at least one sound, i.e. the duration of the study with acoustic activity in days. The PPI is calculated for populations ranging from 1 to the total number of clusters found.  Clusters are gradually included in populations according to their presence in the dataset, in descending order of PI: the population containing $n$ individuals will contain the $n$ individuals with the highest PI.
 
 The PPI can be seen as an approximation of the probability that the $n$ clusters in the population represent the data, and is therefore an estimate of the real number of individuals: the more clusters are added to the population, the closer the PPI is to 1. This PPI must therefore be balanced against the risk of overestimating the number of individuals present in the real population. The AIC (3), or Akaike Information Criterion [7-8], measures the quality of a statistical model by balancing the explanatory power of the model, the natural logarithm of its likelihood $\log(L)$ and $n$, the number of parameters in a statistical model:
 
