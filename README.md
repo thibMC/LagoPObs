@@ -79,11 +79,11 @@ If you want to execute the python code, you need to install these libraries:
 - With pip:
 
 ```
-pip install numpy scipy scikit-image scikit-learn matplotlib soxr pywavelets pandas opencv-python
+pip install numpy scipy scikit-learn matplotlib soxr pywavelets pandas opencv-python
 ```
 - With conda:
 ```
-conda install numpy scipy scikit-image scikit-learn matplotlib soxr pywavelets pandas opencv-python
+conda install numpy scipy scikit-learn matplotlib soxr pywavelets pandas opencv-python
 ```
 To get the software and the python codes, you can clone the repo with git by typing in the terminal:
 
@@ -175,7 +175,7 @@ $$FS = 2 \times (Highest frequency + 100) \qquad(5)$$
 
 The characteristics of the spectrograms of the filtered signal and its envelope can be configured using the next 4 parameters: *Window length* and *Overlap of STFT of sound* for the STFT performed on the filtered signal and *Window length* and *Overlap* of the STFT for the spectrogram of the envelope. A hamming window is used for both spectrograms and cannot be modified using the interface.
 
-The *Feature extraction algorithm* parameter is used to select the algorithm responsible for extracting keypoints and descriptors. The aim of these algorithms is to detect the critical keypoints in the image that best describe its characteristics. Each keypoint is accompanied by a descriptor that represents the local features of the image around the keypoint (Fig.1,2). A list of algorithms from OpenCV [13] is proposed: ORB [1-2], Custom ORB is an ORB but with parameters set specifically for rock ptarmigan spectrograms, SIFT [14-15], AKAZE [16-17], KAZE [16-17]. ORB or Custom ORB should be suitable for most applications, and are also the fastest. After extracting key points and descriptors, a Brute force matcher [5] will match the descriptors of each image pair (Fig.3). FLANN-based matcher were tested but not included here as it performed equally or worst and were slower. A distance for each match is calculated, then the matches are ranked by increasing distance. The algorithm keeps a number of matches equal to the *Number of matches* smallest distances. The average distance of these matches is calculated and corresponds to the distance between the two images. The distance is calculated for each pair of images and used to construct the inter-image distance matrix.
+The *Feature extraction algorithm* parameter is used to select the algorithm responsible for extracting keypoints and descriptors. The aim of these algorithms is to detect the critical keypoints in the image that best describe its characteristics. Each keypoint is accompanied by a descriptor that represents the local features of the image around the keypoint (Fig.1,2). A list of algorithms from OpenCV [13] is proposed: ORB [1-2], Custom ORB is an ORB but with parameters set specifically for rock ptarmigan spectrograms, SIFT [14-15], AKAZE [16-17], KAZE [18-19]. ORB or Custom ORB should be suitable for most applications, and are also the fastest. After extracting key points and descriptors, a Brute force matcher [5] will match the descriptors of each image pair (Fig.3). FLANN-based matcher were tested but not included here as it performed equally or worst and were slower. A distance for each match is calculated, then the matches are ranked by increasing distance. The algorithm keeps a number of matches equal to the *Number of matches* smallest distances. The average distance of these matches is calculated and corresponds to the distance between the two images. The distance is calculated for each pair of images and used to construct the inter-image distance matrix.
 
 The *Clustering algorithm* parameter controls the type of algorithm used for clustering. The choice is made from a list of algorithms proposed by scikit-learn [20-21]: Affinity propagation [22], agglomerative hierarchical clustering [23], Bisecting K-Means [24], Gaussian mixture model [25], HDBSCAN [26], K-Means [27], Mean Shift [28]. Scikit-learn provides a very good description of each algorithm, so no further details will be given here, and readers wishing to find out more can consult the link in [29]. Some algorithms tend to subdivide sounds into small clusters, while others are more conservative and minimize the number of clusters.
 
