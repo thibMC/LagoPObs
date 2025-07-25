@@ -4,7 +4,7 @@ This code is © T. Marin-Cudraz, REEF PULSE S.A.S, LPO AuRA, 2025, and it is mad
 
 Over and above the legal restrictions imposed by this license, if you use this software for an academic publication then please provide proper attribution. This can be to this code directly:
 
-T. Marin-Cudraz, Y. Bayle, S. Elise, B. Drillat. LagoPObs: Lagopède Population Observator, a software to separate male ptarmigans indivuals from their sounds (2025). github.com/XXXXX.
+T. Marin-Cudraz, B. Drillat. LagoPObs: Lagopède Population Observator, a software to separate male ptarmigans indivuals from their sounds (2025). https://github.com/reefpulse/LagoPObs.
 
 # Purpose of the software
 

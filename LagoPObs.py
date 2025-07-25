@@ -459,7 +459,7 @@ class LagoPopObsUI(tk.Tk):
                         df_pic.to_csv(param_values[1] + "/PPI_PIC.csv", index=False)
                         # Update window
                         self.update_progress(
-                            new_text=f"done!\nEstimated total number of individuals: {n_indiv_tot}\nEstimated number of resident individuals: {n_indiv_resident}"
+                            new_text=f"done!\nEstimated number of individuals using PIC: {n_indiv_tot}\nEstimated number of resident individuals: {n_indiv_resident}"
                         )
                         self.popup.update()
 
