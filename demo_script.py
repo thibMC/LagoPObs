@@ -87,10 +87,11 @@ if estim_pop == "Yes":
         sorted_pi_df = pi_df.sort_values(by="Presence_index", ascending=False)
         sorted_pi_df.to_csv(output_dir + "/presence_index.csv", index=False)
         # Estimation of resident individuals according to Presence Index
-        n_indiv_resident = np.count_nonzero(pi_df.Presence_index >= 0.01)
+        n_indiv_pi = np.count_nonzero(pi_df.Presence_index >= 0.01)
         # Estimation of the whole population using Population Information Criterion
         pi_pop = pop_estimation.population_presence_index(pi_arr, pres)
-        n_indiv_tot, df_pic = pop_estimation.estimate_number_of_individuals(pi_pop)
+        n_indiv_pic, df_pic = pop_estimation.estimate_number_of_individuals(pi_pop)
         df_pic.to_csv(output_dir + "/PPI_PIC.csv", index=False)
-        print("Estimated total number of individuals: " + str(n_indiv_tot))
-        print("Estimated number of resident individuals: " + str(n_indiv_resident))
+        res_print = f"Estimated number of individuals using PI: {n_indiv_pi}\nEstimated number of individuals using PIC: {n_indiv_pic}"
+        print(res_print)
+        print(res_print, open(output_dir + "/results.txt", "w"))

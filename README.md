@@ -223,6 +223,8 @@ If the user activated population estimation, 4 supplementary CSV files are gener
 
 - *PPI_PIC.csv* contains the population presence index (PPI) and the population information criterion (PIC) as a function of the number of clusters in the estimated population.
 
+- *results.txt* contains the number of individuals estimated using the Presence Index (PI) and the population information criterion (PIC)
+
 # References
 
 [1] Rublee, E., Rabaud, V., Konolige, K., & Bradski, G. (2011, November). ORB: An efficient alternative to SIFT or SURF. In 2011 International conference on computer vision (pp. 2564-2571). Ieee.

@@ -450,18 +450,19 @@ class LagoPopObsUI(tk.Tk):
                             param_values[1] + "/presence_index.csv", index=False
                         )
                         # Estimation of resident individuals according to Presence Index
-                        n_indiv_resident = np.count_nonzero(pi_arr[:, 3] >= 0.01)
+                        n_indiv_pi = np.count_nonzero(pi_arr[:, 3] >= 0.01)
                         # Estimation of the whole population using Population Information Criterion
                         pi_pop = pop_estimation.population_presence_index(pi_arr, pres)
-                        n_indiv_tot, df_pic = (
+                        n_indiv_pic, df_pic = (
                             pop_estimation.estimate_number_of_individuals(pi_pop)
                         )
                         df_pic.to_csv(param_values[1] + "/PPI_PIC.csv", index=False)
                         # Update window
-                        self.update_progress(
-                            new_text=f"done!\nEstimated number of individuals using PIC: {n_indiv_tot}\nEstimated number of resident individuals: {n_indiv_resident}"
-                        )
+                        res_print = f"done!\nEstimated number of individuals using PI: {n_indiv_pi}\nEstimated number of individuals using PIC: {n_indiv_pic}"
+                        self.update_progress(new_text=res_print)
                         self.popup.update()
+                        # Print results in file
+                        print(res_print, open(param_values[1] + "/results.txt", "w"))
 
                 # Button to close the popup
                 button_finish = ttk.Button(
