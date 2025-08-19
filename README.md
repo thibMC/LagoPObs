@@ -4,7 +4,7 @@ This code is © T. Marin-Cudraz, REEF PULSE S.A.S, LPO AuRA, 2025, and it is mad
 
 Over and above the legal restrictions imposed by this license, if you use this software for an academic publication then please provide proper attribution. This can be to this code directly:
 
-T. Marin-Cudraz, B. Drillat. LagoPObs: Lagopède Population Observator, a software to separate male ptarmigans indivuals from their sounds (2025). https://github.com/reefpulse/LagoPObs.
+T. Marin-Cudraz, B. Drillat. LagoPObs: Lagopède Population Observator, a software to separate male ptarmigans indivuals from their sounds (2025). https://github.com/lpoaura/LagoPObs.
 
 # Purpose of the software
 
@@ -88,7 +88,7 @@ conda install numpy scipy scikit-learn matplotlib soxr pywavelets pandas opencv-
 To get the software and the python codes, you can clone the repo with git by typing in the terminal:
 
 ```
-git clone https://github.com/XXXX
+git clone https://github.com/lpoaura/LagoPObs
 ```
 
 You can also download the repo as a ZIP file using the *Code* button and clicking on *Download ZIP* (Fig.4). The software and the codes will be available in the downloaded ZIP file.
